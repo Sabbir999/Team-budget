@@ -1,100 +1,96 @@
-A comprehensive web application for managing sports team expenses, player payments, and financial tracking. Built with modern technologies to help team organizers efficiently manage their team finances.
+# 🏆 TeamBudget
 
-🏸 Overview
-TeamBudget simplifies the financial management of sports teams by providing:
+A comprehensive web application for managing **sports team expenses**, **player payments**, and **financial tracking**. Built with modern technologies to help team organizers efficiently manage their team finances.
 
-Multi-team support for different sports and seasons
+---
 
-Player management with contact information and payment tracking
+## 🏸 Overview
 
-Expense tracking for court rentals, equipment, and other costs
+**TeamBudget** simplifies the financial management of sports teams by providing:
 
-Payment recording with multiple payment methods and status tracking
+* 💼 **Multi-team support** for different sports and seasons
+* 👥 **Player management** with contact information and payment tracking
+* 💰 **Expense tracking** for court rentals, equipment, and other costs
+* 🧾 **Payment recording** with multiple payment methods and status tracking
+* 🔄 **Real-time synchronization** across all devices
+* 📊 **Financial dashboards** with visual insights
 
-Real-time synchronization across all devices
+---
 
-Financial dashboards with visual insights
+## ✨ Features
 
-✨ Features
-🎯 Core Features
-Team Management: Create and manage multiple teams for different sports
+### 🎯 Core Features
 
-Player Roster: Maintain player profiles with contact information
+* **Team Management:** Create and manage multiple teams for different sports
+* **Player Roster:** Maintain player profiles with contact information
+* **Expense Tracking:** Record monthly expenses with categorization
+* **Payment Management:** Track player payments with status monitoring
+* **Real-time Dashboard:** View financial overview and key metrics
+* **Multi-currency Support:** USD, CAD, EUR, GBP, and more
 
-Expense Tracking: Record monthly expenses with categorization
+### 📊 Financial Features
 
-Payment Management: Track player payments with status monitoring
+* Automatic per-player cost calculation
+* Payment status tracking (Paid, Pending, Partial)
+* Outstanding balance monitoring
+* Collection rate analytics
+* Monthly financial summaries
 
-Real-time Dashboard: View financial overview and key metrics
+---
 
-Multi-currency Support: Support for USD, CAD, EUR, GBP, and more
+## 🔐 Security & Data
 
-📊 Financial Features
-Automatic per-player cost calculation
+* Firebase Authentication with email/password
+* Real-time database with user-specific data isolation
+* Secure environment variable configuration
+* Data persistence and backup
 
-Payment status tracking (Paid, Pending, Partial)
+---
 
-Outstanding balance monitoring
+## 🛠 Technology Stack
 
-Collection rate analytics
+### Frontend
 
-Monthly financial summaries
+* **React 18** – Modern React with hooks and functional components
+* **React Router DOM** – Client-side routing
+* **Tailwind CSS** – Utility-first CSS framework
+* **Lucide React** – Beautiful icons
+* **Vite** – Fast build tool and dev server
 
-🔐 Security & Data
-Firebase Authentication with email/password
+### Backend & Database
 
-Real-time database with user-specific data isolation
+* **Firebase Authentication** – Secure user management
+* **Firebase Realtime Database** – Real-time synchronization
+* **Firebase Security Rules** – Access control
 
-Secure environment variable configuration
+### Development Tools
 
-Data persistence and backup
+* **PostCSS** – CSS processing
+* **Environment Variables** – Secure configuration management
 
-🛠 Technology Stack
-Frontend
-React 18 - Modern React with hooks and functional components
+---
 
-React Router DOM - Client-side routing
+## 🚀 Quick Start
 
-Tailwind CSS - Utility-first CSS framework
+### Prerequisites
 
-Lucide React - Beautiful icons
+* Node.js 16+
+* npm or yarn
+* Firebase account
 
-Vite - Fast build tool and development server
+### Installation
 
-Backend & Database
-Firebase Authentication - User management and security
-
-Firebase Realtime Database - Real-time data synchronization
-
-Firebase Security Rules - Data access control
-
-Development Tools
-PostCSS - CSS processing
-
-Environment Variables - Secure configuration management
-
-🚀 Quick Start
-Prerequisites
-Node.js 16+ installed
-
-npm or yarn package manager
-
-Firebase account
-
-Installation
-Clone the repository
-
-bash
+```bash
 git clone <repository-url>
 cd team-budget
-Install dependencies
-
-bash
 npm install
-Environment Configuration
-Create a .env file in the root directory:
+```
 
-env
+### Environment Configuration
+
+Create a `.env` file in the root directory:
+
+```env
 VITE_FIREBASE_API_KEY=your_api_key_here
 VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
 VITE_FIREBASE_DATABASE_URL=https://your_project.firebaseio.com
@@ -102,49 +98,40 @@ VITE_FIREBASE_PROJECT_ID=your_project_id
 VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
 VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
 VITE_FIREBASE_APP_ID=your_app_id
-Start development server
+```
 
-bash
+### Start Development Server
+
+```bash
 npm run dev
-Open your browser
-Navigate to http://localhost:3000
+```
 
-🔥 Firebase Setup
-1. Create Firebase Project
-Go to Firebase Console
+Open your browser and navigate to:
+👉 **[http://localhost:3000](http://localhost:3000)**
 
-Click "Add project" and name it "teambudget"
+---
 
-Disable Google Analytics (not required)
+## 🔥 Firebase Setup
 
-Click "Create project"
+### 1. Create Firebase Project
 
-2. Enable Authentication
-In Firebase Console, go to Authentication
+1. Go to [Firebase Console](https://console.firebase.google.com)
+2. Click **Add project** → Name it `teambudget`
+3. Disable Google Analytics → Click **Create project**
 
-Click "Get started"
+### 2. Enable Authentication
 
-Go to Sign-in method tab
+* Go to **Authentication → Get Started**
+* Under **Sign-in Method**, enable **Email/Password**
 
-Enable Email/Password provider
+### 3. Create Realtime Database
 
-Click "Save"
+* Navigate to **Realtime Database → Create Database**
+* Choose **Start in test mode** and select region
 
-3. Create Realtime Database
-Go to Realtime Database
+### 4. Configure Security Rules
 
-Click "Create Database"
-
-Choose Start in test mode
-
-Select your preferred region
-
-Click "Create"
-
-4. Configure Security Rules
-Update database rules in Realtime Database > Rules:
-
-json
+```json
 {
   "rules": {
     "users": {
@@ -155,37 +142,37 @@ json
     }
   }
 }
-5. Get Configuration
-Go to Project settings
+```
 
-Scroll to Your apps
+### 5. Get Configuration
 
-Click Web icon (</>)
+* Go to **Project Settings → Your Apps → Web (</>)**
+* Register app name: `teambudget-web`
+* Copy config to `.env` file
 
-Register app name: "teambudget-web"
+---
 
-Copy the configuration object to your .env file
+## 📁 Project Structure
 
-📁 Project Structure
-text
+```
 teambudget/
 ├── public/                 # Static assets
 ├── src/
 │   ├── components/         # React components
-│   │   ├── common/        # Reusable components
-│   │   ├── dashboard/     # Dashboard components
-│   │   ├── expenses/      # Expense management
-│   │   ├── players/       # Player management
-│   │   ├── payments/      # Payment tracking
-│   │   └── teams/         # Team management
-│   ├── contexts/          # React contexts
+│   │   ├── common/
+│   │   ├── dashboard/
+│   │   ├── expenses/
+│   │   ├── players/
+│   │   ├── payments/
+│   │   └── teams/
+│   ├── contexts/
 │   │   ├── AuthContext.jsx
 │   │   └── DataContext.jsx
-│   ├── hooks/             # Custom React hooks
+│   ├── hooks/
 │   │   ├── useAuth.js
 │   │   ├── useData.js
 │   │   └── useFirebase.js
-│   ├── pages/             # Page components
+│   ├── pages/
 │   │   ├── Dashboard.jsx
 │   │   ├── Teams.jsx
 │   │   ├── Players.jsx
@@ -194,119 +181,66 @@ teambudget/
 │   │   ├── Login.jsx
 │   │   ├── Register.jsx
 │   │   └── Settings.jsx
-│   ├── services/          # Firebase services
+│   ├── services/
 │   │   ├── firebase.js
 │   │   └── database.js
-│   ├── utils/             # Utility functions
+│   ├── utils/
 │   │   ├── constants.js
 │   │   ├── helpers.js
 │   │   └── validators.js
-│   └── styles/            # Global styles
+│   └── styles/
 │       └── index.css
-├── .env                   # Environment variables
+├── .env
 ├── package.json
 ├── tailwind.config.js
 ├── vite.config.js
 └── README.md
-🎮 Usage Guide
-Getting Started
-Register/Login: Create an account or sign in
+```
 
-Create Your First Team:
+---
 
-Click "Create Your First Team" on dashboard
+## 🎮 Usage Guide
 
-Enter team name, sport type, and currency
+### Getting Started
 
-Add location and schedule information
+1. **Register/Login** – Create an account
+2. **Create Team** – Add name, sport, and currency
+3. **Add Players** – Input player details and contact info
+4. **Record Expenses** – Add monthly expenses with categories
+5. **Track Payments** – Log payments by player and method
 
-Add Players:
+### Supported Sports
 
-Navigate to Players page
+Badminton • Basketball • Soccer • Volleyball • Tennis • Hockey • Baseball • Football • Cricket • Rugby • Other
 
-Click "Add Player"
+### Payment Methods
 
-Enter player details and contact information
+Zelle • Venmo • PayPal • Cash • Bank Transfer • Others
 
-Record Expenses:
+---
 
-Go to Expenses page
+## 📊 Dashboard Features
 
-Click "Add Expense"
+### Financial Overview
 
-Enter monthly expenses (court fees, equipment, etc.)
+* Total collected amount
+* Total expenses
+* Outstanding balances
+* Collection rate percentage
+* Active player count
 
-Set number of players for cost splitting
+### Team Management
 
-Track Payments:
+* Quick team switching
+* Team-specific data
+* Player attendance tracking
+* Expense categorization
 
-Navigate to Payments page
+---
 
-Click "Record Payment"
+## 🔧 Available Scripts
 
-Select player, amount, and payment status
-
-Choose payment method
-
-Supported Sports
-Badminton
-
-Basketball
-
-Soccer
-
-Volleyball
-
-Tennis
-
-Hockey
-
-Baseball
-
-Football
-
-Cricket
-
-Rugby
-
-Other sports
-
-Payment Methods
-Zelle
-
-Venmo
-
-PayPal
-
-Cash
-
-Bank Transfer
-
-Other methods
-
-📊 Dashboard Features
-Financial Overview
-Total collected amount
-
-Total expenses
-
-Outstanding balances
-
-Collection rate percentage
-
-Active players count
-
-Team Management
-Quick team switching
-
-Team-specific financial data
-
-Player attendance tracking
-
-Expense categorization
-
-🔧 Available Scripts
-bash
+```bash
 # Start development server
 npm run dev
 
@@ -316,120 +250,134 @@ npm run build
 # Preview production build
 npm run preview
 
-# Start development server (alternative)
+# Alternative start
 npm start
-⚙️ Configuration
-Environment Variables
-Variable	Description	Required
-VITE_FIREBASE_API_KEY	Firebase API key	Yes
-VITE_FIREBASE_AUTH_DOMAIN	Firebase auth domain	Yes
-VITE_FIREBASE_DATABASE_URL	Realtime Database URL	Yes
-VITE_FIREBASE_PROJECT_ID	Firebase project ID	Yes
-VITE_FIREBASE_STORAGE_BUCKET	Storage bucket URL	No
-VITE_FIREBASE_MESSAGING_SENDER_ID	Messaging sender ID	No
-VITE_FIREBASE_APP_ID	Firebase app ID	Yes
-Tailwind CSS Configuration
-The project uses a custom Tailwind configuration with:
+```
 
-Primary, success, warning, and danger color schemes
+---
 
-Custom animations (fade-in, slide-up)
+## ⚙️ Configuration
 
-Component classes for buttons, cards, and inputs
+### Environment Variables
 
-🐛 Troubleshooting
-Common Issues
-Firebase Configuration Error
+| Variable                          | Description          | Required |
+| --------------------------------- | -------------------- | -------- |
+| VITE_FIREBASE_API_KEY             | Firebase API key     | ✅        |
+| VITE_FIREBASE_AUTH_DOMAIN         | Firebase auth domain | ✅        |
+| VITE_FIREBASE_DATABASE_URL        | Realtime DB URL      | ✅        |
+| VITE_FIREBASE_PROJECT_ID          | Firebase project ID  | ✅        |
+| VITE_FIREBASE_STORAGE_BUCKET      | Storage bucket URL   | ❌        |
+| VITE_FIREBASE_MESSAGING_SENDER_ID | Messaging sender ID  | ❌        |
+| VITE_FIREBASE_APP_ID              | Firebase app ID      | ✅        |
 
-Ensure all environment variables are set
+### Tailwind CSS Configuration
 
-Verify database URL includes project ID
+* Custom color palette (primary, success, warning, danger)
+* Custom animations (fade-in, slide-up)
+* Component classes for buttons, cards, and inputs
 
-Check Firebase project settings
+---
 
-Environment Variables Not Loading
+## 🐛 Troubleshooting
 
-Restart development server after changing .env
+### Common Issues
 
-Ensure variable names start with VITE_
+#### Firebase Configuration Error
 
-Check file location (root directory)
+* Check `.env` variables
+* Verify project ID in URL
+* Confirm Firebase setup
 
-Database Permission Errors
+#### Environment Variables Not Loading
 
-Verify Realtime Database rules
+* Restart dev server
+* Ensure variables start with `VITE_`
+* Confirm `.env` is in root
 
-Check user authentication status
+#### Database Permission Errors
 
-Ensure proper security rules configuration
+* Verify Firebase rules
+* Ensure user is authenticated
 
-Development Tips
-Use browser developer tools to monitor network requests
+### Development Tips
 
-Check Firebase console for database changes in real-time
+* Use browser dev tools
+* Check Firebase Console for real-time data
+* Monitor console for errors
 
-Use the debug components to verify environment variables
+---
 
-Monitor browser console for error messages
+## 🤝 Contributing
 
-🤝 Contributing
-We welcome contributions! Please follow these steps:
+### Steps
 
-Fork the repository
+1. Fork the repository
+2. Create a feature branch:
 
-Create a feature branch (git checkout -b feature/amazing-feature)
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. Commit changes:
 
-Commit your changes (git commit -m 'Add amazing feature')
+   ```bash
+   git commit -m 'Add amazing feature'
+   ```
+4. Push branch:
 
-Push to the branch (git push origin feature/amazing-feature)
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+5. Open a Pull Request
 
-Open a Pull Request
+### Guidelines
 
-Development Guidelines
-Follow React best practices with hooks
+* Follow React best practices
+* Use Tailwind for styling
+* Add error handling and comments
 
-Use Tailwind CSS for styling
+---
 
-Maintain consistent component structure
+## 📄 License
 
-Add proper error handling
+This project is licensed under the **MIT License** – see the [LICENSE](LICENSE) file for details.
 
-Include comments for complex logic
+---
 
-📄 License
-This project is licensed under the MIT License - see the LICENSE file for details.
+## 🙏 Acknowledgments
 
-🙏 Acknowledgments
-Firebase for backend services and real-time database
+* **Firebase** for backend and real-time database
+* **React Team** for the framework
+* **Tailwind CSS** for the design system
+* **Lucide Icons** for beautiful iconography
+* **Vite** for blazing-fast builds
 
-React Team for the amazing framework
+---
 
-Tailwind CSS for the utility-first CSS framework
+## 📞 Support
 
-Lucide for the beautiful icons
+If you encounter issues:
 
-Vite for the fast build tool
+* Review the **Troubleshooting** section
+* Check **Firebase Documentation**
+* Open a GitHub **Issue**
+* Contact the **Development Team**
 
-📞 Support
-If you encounter any issues or have questions:
+---
 
-Check the troubleshooting section above
+## 🚀 Deployment
 
-Review Firebase documentation
+### Build for Production
 
-Create an issue in the repository
-
-Contact the development team
-
-🚀 Deployment
-Build for Production
-bash
+```bash
 npm run build
-The dist folder will contain the production-ready files that can be deployed to any static hosting service.
+```
 
-Recommended Hosting
-Firebase Hosting: Ideal for Firebase projects
+The `dist/` folder will contain production-ready files that can be deployed to any static hosting service.
 
+### Recommended Hosting
 
+* **Firebase Hosting** – Perfect for Firebase-based projects.
 
-TeamBudget - Making sports team finance management simple and efficient! 🏆
+---
+
+> **TeamBudget** – Making sports team finance management simple and efficient! 🏆
