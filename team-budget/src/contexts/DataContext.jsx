@@ -22,11 +22,24 @@ export function useData() {
 export function DataProvider({ children }) {
   const { currentUser } = useAuth();
   const [teams, setTeams] = useState([]);
-  const [players, setPlayers] = useState([]);
-  const [expenses, setExpenses] = useState([]);
-  const [payments, setPayments] = useState([]);
+  const [allPlayers, setAllPlayers] = useState([]);
+  const [allExpenses, setAllExpenses] = useState([]);
+  const [allPayments, setAllPayments] = useState([]);
   const [currentTeam, setCurrentTeam] = useState(null);
   const [loading, setLoading] = useState(true);
+
+  // Filtered data based on current team
+  const players = currentTeam 
+    ? allPlayers.filter(p => p.teamId === currentTeam.id)
+    : allPlayers;
+
+  const expenses = currentTeam
+    ? allExpenses.filter(e => e.teamId === currentTeam.id)
+    : allExpenses;
+
+  const payments = currentTeam
+    ? allPayments.filter(p => p.teamId === currentTeam.id)
+    : allPayments;
 
   // Load teams
   useEffect(() => {
@@ -49,27 +62,58 @@ export function DataProvider({ children }) {
         }));
         setTeams(teamsArray);
         
-        // Set first team as current if none selected
-        if (!currentTeam && teamsArray.length > 0) {
-          setCurrentTeam(teamsArray[0]);
+        // Set first team as current if none selected or current team no longer exists
+        if (!currentTeam || !teamsArray.find(t => t.id === currentTeam.id)) {
+          if (teamsArray.length > 0) {
+            setCurrentTeam(teamsArray[0]);
+            console.log('✅ Set first team as current:', teamsArray[0].name);
+          }
         }
       } else {
         setTeams([]);
+        setCurrentTeam(null);
       }
       setLoading(false);
     });
 
     return () => unsubscribeTeams();
-  }, [currentUser, currentTeam]);
+  }, [currentUser]);
 
-  // Load players
+  // Update current team when it's manually changed
+  const handleSetCurrentTeam = (team) => {
+    console.log('🔄 Switching to team:', team.name);
+    setCurrentTeam(team);
+    
+    // Store in localStorage for persistence
+    if (team) {
+      localStorage.setItem('currentTeamId', team.id);
+    } else {
+      localStorage.removeItem('currentTeamId');
+    }
+  };
+
+  // Restore current team from localStorage on mount
+  useEffect(() => {
+    if (teams.length > 0) {
+      const savedTeamId = localStorage.getItem('currentTeamId');
+      if (savedTeamId) {
+        const savedTeam = teams.find(t => t.id === savedTeamId);
+        if (savedTeam) {
+          setCurrentTeam(savedTeam);
+          console.log('✅ Restored team from localStorage:', savedTeam.name);
+        }
+      }
+    }
+  }, [teams]);
+
+  // Load all players
   useEffect(() => {
     if (!currentUser) {
-      setPlayers([]);
+      setAllPlayers([]);
       return;
     }
 
-    console.log('🔄 Loading players for user:', currentUser.uid);
+    console.log('🔄 Loading all players for user:', currentUser.uid);
     const unsubscribePlayers = playersAPI.getPlayers(currentUser.uid, (snapshot) => {
       const playersData = snapshot.val();
       console.log('👥 Players data from Firebase:', playersData);
@@ -79,10 +123,10 @@ export function DataProvider({ children }) {
           ...playersData[key],
           id: key
         }));
-        setPlayers(playersArray);
-        console.log('✅ Players loaded:', playersArray.length);
+        setAllPlayers(playersArray);
+        console.log('✅ All players loaded:', playersArray.length);
       } else {
-        setPlayers([]);
+        setAllPlayers([]);
         console.log('❌ No players found in database');
       }
     });
@@ -90,13 +134,14 @@ export function DataProvider({ children }) {
     return () => unsubscribePlayers();
   }, [currentUser]);
 
-  // Load expenses
+  // Load all expenses
   useEffect(() => {
     if (!currentUser) {
-      setExpenses([]);
+      setAllExpenses([]);
       return;
     }
 
+    console.log('🔄 Loading all expenses for user:', currentUser.uid);
     const unsubscribeExpenses = expensesAPI.getExpenses(currentUser.uid, (snapshot) => {
       const expensesData = snapshot.val();
       if (expensesData) {
@@ -104,22 +149,24 @@ export function DataProvider({ children }) {
           ...expensesData[key],
           id: key
         }));
-        setExpenses(expensesArray);
+        setAllExpenses(expensesArray);
+        console.log('✅ All expenses loaded:', expensesArray.length);
       } else {
-        setExpenses([]);
+        setAllExpenses([]);
       }
     });
 
     return () => unsubscribeExpenses();
   }, [currentUser]);
 
-  // Load payments
+  // Load all payments
   useEffect(() => {
     if (!currentUser) {
-      setPayments([]);
+      setAllPayments([]);
       return;
     }
 
+    console.log('🔄 Loading all payments for user:', currentUser.uid);
     const unsubscribePayments = paymentsAPI.getPayments(currentUser.uid, (snapshot) => {
       const paymentsData = snapshot.val();
       if (paymentsData) {
@@ -127,9 +174,10 @@ export function DataProvider({ children }) {
           ...paymentsData[key],
           id: key
         }));
-        setPayments(paymentsArray);
+        setAllPayments(paymentsArray);
+        console.log('✅ All payments loaded:', paymentsArray.length);
       } else {
-        setPayments([]);
+        setAllPayments([]);
       }
     });
 
@@ -139,17 +187,35 @@ export function DataProvider({ children }) {
   // Team management functions
   const createTeam = async (teamData) => {
     if (!currentUser) throw new Error('No user logged in');
-    return teamsAPI.createTeam(currentUser.uid, teamData);
+    const newTeam = await teamsAPI.createTeam(currentUser.uid, teamData);
+    
+    // Set newly created team as current
+    if (newTeam) {
+      setCurrentTeam(newTeam);
+    }
+    
+    return newTeam;
   };
 
   const updateTeam = async (teamId, updates) => {
     if (!currentUser) throw new Error('No user logged in');
-    return teamsAPI.updateTeam(currentUser.uid, teamId, updates);
+    await teamsAPI.updateTeam(currentUser.uid, teamId, updates);
+    
+    // Update current team if it's the one being updated
+    if (currentTeam && currentTeam.id === teamId) {
+      setCurrentTeam({ ...currentTeam, ...updates });
+    }
   };
 
   const deleteTeam = async (teamId) => {
     if (!currentUser) throw new Error('No user logged in');
-    return teamsAPI.deleteTeam(currentUser.uid, teamId);
+    await teamsAPI.deleteTeam(currentUser.uid, teamId);
+    
+    // If deleted team was current, switch to another team
+    if (currentTeam && currentTeam.id === teamId) {
+      const remainingTeams = teams.filter(t => t.id !== teamId);
+      setCurrentTeam(remainingTeams.length > 0 ? remainingTeams[0] : null);
+    }
   };
 
   // Player management functions
@@ -204,7 +270,7 @@ export function DataProvider({ children }) {
   };
 
   const value = {
-    // Data
+    // Data - filtered by current team
     teams,
     players,
     expenses,
@@ -212,11 +278,16 @@ export function DataProvider({ children }) {
     currentTeam,
     loading,
     
+    // Unfiltered data for reference
+    allPlayers,
+    allExpenses,
+    allPayments,
+    
     // Team actions
     createTeam,
     updateTeam,
     deleteTeam,
-    setCurrentTeam,
+    setCurrentTeam: handleSetCurrentTeam,
     
     // Player actions  
     createPlayer,

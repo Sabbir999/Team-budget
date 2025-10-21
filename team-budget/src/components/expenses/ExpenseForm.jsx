@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import Modal from '../common/Modal';
+import { Plus, X } from 'lucide-react';
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-const shuttlecockTypes = [
-  'Not played',
-  'Aero & Ling',
-  'Yonex',
-  'Victor',
-  'Li-Ning',
-  'Other'
+const shuttlecockOptions = [
+  'Aeroplane',
+  'Ling-Mei',
+  'Yonex AS-50',
+  'Yonex AS-40',
+  'Victor Gold',
+  'Li-Ning A+600',
+  'Custom'
 ];
 
 export default function ExpenseForm({ expense, onClose }) {
@@ -30,9 +32,14 @@ export default function ExpenseForm({ expense, onClose }) {
     equipment: 0,
     other: 0,
     playersCount: 0,
-    shuttlecockUsed: 'Not played',
+    shuttlecockUsed: [],
     notes: ''
   });
+
+  // State for managing shuttlecock selections
+  const [shuttlecocks, setShuttlecocks] = useState([
+    { id: Date.now(), type: '', customName: '' }
+  ]);
 
   useEffect(() => {
     if (expense) {
@@ -45,9 +52,18 @@ export default function ExpenseForm({ expense, onClose }) {
         equipment: expense.equipment || 0,
         other: expense.other || 0,
         playersCount: expense.playersCount || 0,
-        shuttlecockUsed: expense.shuttlecockUsed || 'Not played',
+        shuttlecockUsed: expense.shuttlecockUsed || [],
         notes: expense.notes || ''
       });
+
+      // Parse existing shuttlecock data
+      if (expense.shuttlecockUsed && Array.isArray(expense.shuttlecockUsed) && expense.shuttlecockUsed.length > 0) {
+        setShuttlecocks(expense.shuttlecockUsed.map((item, index) => ({
+          id: Date.now() + index,
+          type: item.type === 'Custom' ? 'Custom' : item.type,
+          customName: item.type === 'Custom' ? item.customName : ''
+        })));
+      }
     } else {
       setFormData(prev => ({
         ...prev,
@@ -55,6 +71,22 @@ export default function ExpenseForm({ expense, onClose }) {
       }));
     }
   }, [expense, currentTeam, currentYear]);
+
+  const addShuttlecock = () => {
+    setShuttlecocks([...shuttlecocks, { id: Date.now(), type: '', customName: '' }]);
+  };
+
+  const removeShuttlecock = (id) => {
+    if (shuttlecocks.length > 1) {
+      setShuttlecocks(shuttlecocks.filter(s => s.id !== id));
+    }
+  };
+
+  const updateShuttlecock = (id, field, value) => {
+    setShuttlecocks(shuttlecocks.map(s => 
+      s.id === id ? { ...s, [field]: value } : s
+    ));
+  };
 
   const calculateTotal = () => {
     return (formData.indoor || 0) + 
@@ -77,6 +109,19 @@ export default function ExpenseForm({ expense, onClose }) {
       return;
     }
 
+    // Validate shuttlecock selections
+    const validShuttlecocks = shuttlecocks.filter(s => {
+      if (!s.type) return false;
+      if (s.type === 'Custom' && !s.customName.trim()) return false;
+      return true;
+    });
+
+    // Format shuttlecock data
+    const shuttlecockData = validShuttlecocks.map(s => ({
+      type: s.type,
+      customName: s.type === 'Custom' ? s.customName.trim() : s.type
+    }));
+
     setLoading(true);
 
     try {
@@ -84,7 +129,8 @@ export default function ExpenseForm({ expense, onClose }) {
         ...formData,
         teamId: currentTeam.id,
         total: calculateTotal(),
-        perPerson: calculatePerPerson()
+        perPerson: calculatePerPerson(),
+        shuttlecockUsed: shuttlecockData
       };
 
       if (expense) {
@@ -105,7 +151,7 @@ export default function ExpenseForm({ expense, onClose }) {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
-      [name]: name.includes('Count') ? parseInt(value) || 0 : parseFloat(value) || 0
+      [name]: name.includes('Count') || name === 'year' ? parseInt(value) || 0 : parseFloat(value) || 0
     }));
   };
 
@@ -126,7 +172,7 @@ export default function ExpenseForm({ expense, onClose }) {
       onClose={onClose}
       size="lg"
     >
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="month" className="block text-sm font-medium text-gray-700">
@@ -198,6 +244,69 @@ export default function ExpenseForm({ expense, onClose }) {
           </div>
         </div>
 
+        {/* Shuttlecock Selection Section */}
+        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+          <div className="flex justify-between items-center mb-3">
+            <label className="block text-sm font-medium text-gray-700">
+              Shuttlecocks Used
+            </label>
+            <button
+              type="button"
+              onClick={addShuttlecock}
+              className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors"
+            >
+              <Plus className="h-3 w-3 mr-1" />
+              Add More
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {shuttlecocks.map((shuttlecock, index) => (
+              <div key={shuttlecock.id} className="flex gap-2 items-start">
+                <div className="flex-1">
+                  <select
+                    value={shuttlecock.type}
+                    onChange={(e) => updateShuttlecock(shuttlecock.id, 'type', e.target.value)}
+                    className="input-field w-full"
+                  >
+                    <option value="">Select shuttlecock type</option>
+                    {shuttlecockOptions.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {shuttlecock.type === 'Custom' && (
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={shuttlecock.customName}
+                      onChange={(e) => updateShuttlecock(shuttlecock.id, 'customName', e.target.value)}
+                      placeholder="Enter custom name"
+                      className="input-field w-full"
+                    />
+                  </div>
+                )}
+
+                {shuttlecocks.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => removeShuttlecock(shuttlecock.id)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    title="Remove shuttlecock"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <p className="text-xs text-gray-500 mt-2">
+            Select multiple shuttlecocks if you used different types during play
+          </p>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="equipment" className="block text-sm font-medium text-gray-700">
@@ -232,38 +341,19 @@ export default function ExpenseForm({ expense, onClose }) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="playersCount" className="block text-sm font-medium text-gray-700">
-              Number of Players
-            </label>
-            <input
-              type="number"
-              id="playersCount"
-              name="playersCount"
-              min="0"
-              value={formData.playersCount}
-              onChange={handleChange}
-              className="input-field mt-1"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="shuttlecockUsed" className="block text-sm font-medium text-gray-700">
-              Shuttlecock Used
-            </label>
-            <select
-              id="shuttlecockUsed"
-              name="shuttlecockUsed"
-              value={formData.shuttlecockUsed}
-              onChange={handleSelectChange}
-              className="input-field mt-1"
-            >
-              {shuttlecockTypes.map((type) => (
-                <option key={type} value={type}>{type}</option>
-              ))}
-            </select>
-          </div>
+        <div>
+          <label htmlFor="playersCount" className="block text-sm font-medium text-gray-700">
+            Number of Players
+          </label>
+          <input
+            type="number"
+            id="playersCount"
+            name="playersCount"
+            min="0"
+            value={formData.playersCount}
+            onChange={handleChange}
+            className="input-field mt-1"
+          />
         </div>
 
         <div>
@@ -282,21 +372,21 @@ export default function ExpenseForm({ expense, onClose }) {
         </div>
 
         {/* Summary */}
-        <div className="bg-gray-50 p-4 rounded-lg">
+        <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
           <h4 className="text-sm font-medium text-gray-700 mb-2">Summary</h4>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-gray-600">Total Cost:</span>
-              <span className="ml-2 font-semibold">${total.toFixed(2)}</span>
+              <span className="ml-2 font-semibold text-blue-700">${total.toFixed(2)}</span>
             </div>
             <div>
               <span className="text-gray-600">Per Person:</span>
-              <span className="ml-2 font-semibold">${perPerson.toFixed(2)}</span>
+              <span className="ml-2 font-semibold text-blue-700">${perPerson.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4">
+        <div className="flex justify-end space-x-3 pt-4 border-t">
           <button
             type="button"
             onClick={onClose}

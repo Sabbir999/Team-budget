@@ -19,7 +19,8 @@ const paymentMethods = [
 const paymentStatuses = [
   'paid',
   'pending',
-  'partial'
+  'partial',
+  'unpaid'  // Added unpaid option
 ];
 
 export default function PaymentForm({ payment, onClose }) {
@@ -32,7 +33,7 @@ export default function PaymentForm({ payment, onClose }) {
     year: currentYear,
     teamId: currentTeam?.id || '',
     playerId: '',
-    amount: 0,
+    amount: '',
     status: 'paid',
     paymentMethod: 'zelle',
     notes: '',
@@ -46,7 +47,7 @@ export default function PaymentForm({ payment, onClose }) {
         year: payment.year || currentYear,
         teamId: payment.teamId || currentTeam?.id || '',
         playerId: payment.playerId || '',
-        amount: payment.amount || 0,
+        amount: payment.amount || '',
         status: payment.status || 'paid',
         paymentMethod: payment.paymentMethod || 'zelle',
         notes: payment.notes || '',
@@ -73,11 +74,19 @@ export default function PaymentForm({ payment, onClose }) {
       return;
     }
 
+    // Validate amount
+    const amountValue = parseFloat(formData.amount);
+    if (isNaN(amountValue) || amountValue < 0) {
+      alert('Please enter a valid amount');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const paymentData = {
         ...formData,
+        amount: amountValue,
         teamId: currentTeam.id
       };
 
@@ -97,10 +106,27 @@ export default function PaymentForm({ payment, onClose }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: name === 'amount' ? parseFloat(value) || 0 : value
-    }));
+    
+    if (name === 'amount') {
+      // Allow empty string for amount so user can type 0
+      setFormData(prev => ({
+        ...prev,
+        [name]: value === '' ? '' : value
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const formatStatus = (status) => {
+    return status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
+  };
+
+  const formatPaymentMethod = (method) => {
+    return method.charAt(0).toUpperCase() + method.slice(1).replace('_', ' ');
   };
 
   const activePlayers = players.filter(player => player.isActive);
@@ -202,7 +228,7 @@ export default function PaymentForm({ payment, onClose }) {
             >
               {paymentStatuses.map((status) => (
                 <option key={status} value={status}>
-                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                  {formatStatus(status)}
                 </option>
               ))}
             </select>
@@ -222,7 +248,7 @@ export default function PaymentForm({ payment, onClose }) {
             >
               {paymentMethods.map((method) => (
                 <option key={method} value={method}>
-                  {method.charAt(0).toUpperCase() + method.slice(1)}
+                  {formatPaymentMethod(method)}
                 </option>
               ))}
             </select>
