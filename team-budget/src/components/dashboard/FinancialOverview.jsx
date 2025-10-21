@@ -100,25 +100,28 @@ export default function FinancialOverview({ expenses, payments }) {
         </div>
       </div>
 
-      {/* Financial Metrics Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+      {/* Financial Metrics Grid: use auto-fit minmax so cards keep a readable min width */}
+      <div className="grid gap-4 mb-6 grid-cols-[repeat(auto-fit,_minmax(220px,_1fr))]">
         {financialData.map((item, index) => {
           const IconComponent = item.icon;
           return (
-            <div key={index} className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200 hover:border-gray-300 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <div className={`p-2 rounded-lg ${getColorClasses(item.color)}`}>
-                    <IconComponent className="h-4 w-4" />
+            <div key={index} className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200 hover:border-gray-300 transition-colors min-h-[84px]">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* fixed-size icon box so text doesn't push layout */}
+                  <div className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg ${getColorClasses(item.color)}`}>
+                    <IconComponent className="h-5 w-5" />
                   </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-600">{item.label}</p>
-                    <p className="text-lg font-bold text-gray-900">
+
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-600 truncate">{item.label}</p>
+                    <p className="text-lg font-bold text-gray-900 truncate">
                       {formatValue(item.value, item.format)}
                     </p>
                   </div>
                 </div>
-                {getTrendIcon(item.trend)}
+
+                <div className="flex-shrink-0 ml-2">{getTrendIcon(item.trend)}</div>
               </div>
             </div>
           );

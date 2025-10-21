@@ -25,27 +25,30 @@ export default function StatCard({ name, value, icon: Icon, color, bgColor, tren
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <div className={`flex-shrink-0 p-3 rounded-lg ${bgColor}`}>
+    <div className="flex flex-col justify-between bg-white rounded-xl shadow-sm border border-gray-200 p-4 sm:p-5 hover:shadow-md transition-shadow duration-200 min-h-[120px] max-w-full">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center min-w-0 gap-3">
+          {/* icon container: fixed size so text doesn't push it */}
+          <div className={`flex-shrink-0 flex items-center justify-center w-12 h-12 rounded-lg ${bgColor}`}> 
             <Icon className={`h-6 w-6 ${color}`} />
           </div>
-          <div className="ml-4">
-            <p className="text-sm font-medium text-gray-600">{name}</p>
-            <p className="text-2xl font-semibold text-gray-900">{value}</p>
+
+          {/* text: allow truncation and prevent wrapping */}
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-600 truncate">{name}</p>
+            <p className="text-2xl sm:text-2xl font-semibold text-gray-900 truncate">{value}</p>
           </div>
         </div>
-        <div className={`flex items-center ${getTrendColor()}`}>
-          {getTrendIcon()}
-        </div>
+
+        {/* trend: keep compact and prevent it from forcing layout changes */}
+        <div className={`flex-shrink-0 ml-2 flex items-center ${getTrendColor()}`}>{getTrendIcon()}</div>
       </div>
-      
+
       {/* Progress bar for collection rate */}
       {name === 'Collection Rate' && (
-        <div className="mt-3">
+        <div className="mt-4">
           <div className="w-full bg-gray-200 rounded-full h-2">
-            <div 
+            <div
               className="bg-green-500 h-2 rounded-full transition-all duration-500"
               style={{ width: `${value.replace('%', '')}%` }}
             ></div>
