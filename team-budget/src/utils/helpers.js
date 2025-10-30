@@ -69,7 +69,14 @@ export function calculatePlayerBalance(playerId, expenses, payments) {
 // Calculate team financial summary
 export function calculateTeamFinancials(expenses, payments) {
   const totalExpenses = expenses.reduce((sum, expense) => sum + (expense.total || 0), 0);
-  const totalCollected = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  // Only count payments that are marked as paid. Some payments may be 'pending' or 'scheduled'
+  const totalCollected = payments.reduce((sum, payment) => {
+    const status = (payment.status || '').toString().toLowerCase();
+    if (status === 'paid' || status === 'completed' || status === 'confirmed') {
+      return sum + (Number(payment.amount) || 0);
+    }
+    return sum;
+  }, 0);
   const outstanding = totalExpenses - totalCollected;
   const collectionRate = totalExpenses > 0 ? (totalCollected / totalExpenses) * 100 : 0;
 

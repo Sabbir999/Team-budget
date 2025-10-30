@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import Modal from '../common/Modal';
+import { X, AlertCircle } from 'lucide-react';
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -20,12 +21,13 @@ const paymentStatuses = [
   'paid',
   'pending',
   'partial',
-  'unpaid'  // Added unpaid option
+  'unpaid'
 ];
 
 export default function PaymentForm({ payment, onClose }) {
-  const { createPayment, updatePayment, currentTeam, players } = useData();
+  const { createPayment, updatePayment, currentTeam, players, payments } = useData();
   const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
   const currentYear = new Date().getFullYear();
   
   const [formData, setFormData] = useState({
@@ -61,23 +63,46 @@ export default function PaymentForm({ payment, onClose }) {
     }
   }, [payment, currentTeam, currentYear]);
 
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.playerId) {
+      newErrors.playerId = 'Please select a player';
+    }
+
+    const amountValue = parseFloat(formData.amount);
+    if (isNaN(amountValue) || amountValue <= 0) {
+      newErrors.amount = 'Please enter a valid amount greater than 0';
+    }
+
+    // Check for duplicate payment (same player, month, year) when creating new
+    if (!payment) {
+      const duplicatePayment = payments.find(p => 
+        p.playerId === formData.playerId && 
+        p.month === formData.month && 
+        p.year === formData.year &&
+        p.id !== payment?.id
+      );
+      
+      if (duplicatePayment) {
+        const playerName = players.find(p => p.id === formData.playerId)?.name || 'Player';
+        newErrors.duplicate = `${playerName} already has a payment record for ${formData.month} ${formData.year}`;
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    if (!validateForm()) {
+      return;
+    }
+
     if (!currentTeam) {
       alert('Please select a team first');
-      return;
-    }
-
-    if (!formData.playerId) {
-      alert('Please select a player');
-      return;
-    }
-
-    // Validate amount
-    const amountValue = parseFloat(formData.amount);
-    if (isNaN(amountValue) || amountValue < 0) {
-      alert('Please enter a valid amount');
       return;
     }
 
@@ -86,8 +111,9 @@ export default function PaymentForm({ payment, onClose }) {
     try {
       const paymentData = {
         ...formData,
-        amount: amountValue,
-        teamId: currentTeam.id
+        amount: parseFloat(formData.amount),
+        teamId: currentTeam.id,
+        paidAt: formData.paidAt || Date.now()
       };
 
       if (payment) {
@@ -107,8 +133,16 @@ export default function PaymentForm({ payment, onClose }) {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
+    // Clear errors when user starts typing
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
+    }
+    if (errors.duplicate) {
+      setErrors(prev => ({ ...prev, duplicate: '' }));
+    }
+    
     if (name === 'amount') {
-      // Allow empty string for amount so user can type 0
+      // Allow empty string for amount so user can type
       setFormData(prev => ({
         ...prev,
         [name]: value === '' ? '' : value
@@ -122,11 +156,19 @@ export default function PaymentForm({ payment, onClose }) {
   };
 
   const formatStatus = (status) => {
-    return status.charAt(0).toUpperCase() + status.slice(1).replace('_', ' ');
+    return status.charAt(0).toUpperCase() + status.slice(1);
   };
 
   const formatPaymentMethod = (method) => {
-    return method.charAt(0).toUpperCase() + method.slice(1).replace('_', ' ');
+    const methodNames = {
+      zelle: 'Zelle',
+      venmo: 'Venmo',
+      paypal: 'PayPal',
+      cash: 'Cash',
+      bank_transfer: 'Bank Transfer',
+      other: 'Other'
+    };
+    return methodNames[method] || method;
   };
 
   const activePlayers = players.filter(player => player.isActive);
@@ -137,9 +179,16 @@ export default function PaymentForm({ payment, onClose }) {
       onClose={onClose}
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {errors.duplicate && (
+          <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start space-x-2">
+            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+            <p className="text-red-800 text-sm">{errors.duplicate}</p>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="month" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="month" className="block text-sm font-medium text-gray-700 mb-1">
               Month *
             </label>
             <select
@@ -148,7 +197,7 @@ export default function PaymentForm({ payment, onClose }) {
               required
               value={formData.month}
               onChange={handleChange}
-              className="input-field mt-1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             >
               {months.map((month) => (
                 <option key={month} value={month}>{month}</option>
@@ -157,7 +206,7 @@ export default function PaymentForm({ payment, onClose }) {
           </div>
 
           <div>
-            <label htmlFor="year" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">
               Year *
             </label>
             <input
@@ -169,13 +218,13 @@ export default function PaymentForm({ payment, onClose }) {
               max="2030"
               value={formData.year}
               onChange={handleChange}
-              className="input-field mt-1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             />
           </div>
         </div>
 
         <div>
-          <label htmlFor="playerId" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="playerId" className="block text-sm font-medium text-gray-700 mb-1">
             Player *
           </label>
           <select
@@ -184,7 +233,9 @@ export default function PaymentForm({ payment, onClose }) {
             required
             value={formData.playerId}
             onChange={handleChange}
-            className="input-field mt-1"
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+              errors.playerId ? 'border-red-500' : 'border-gray-300'
+            }`}
           >
             <option value="">Select a player</option>
             {activePlayers.map((player) => (
@@ -193,10 +244,13 @@ export default function PaymentForm({ payment, onClose }) {
               </option>
             ))}
           </select>
+          {errors.playerId && (
+            <p className="text-red-500 text-sm mt-1">{errors.playerId}</p>
+          )}
         </div>
 
         <div>
-          <label htmlFor="amount" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
             Amount ($) *
           </label>
           <input
@@ -205,17 +259,22 @@ export default function PaymentForm({ payment, onClose }) {
             name="amount"
             required
             step="0.01"
-            min="0"
+            min="0.01"
             value={formData.amount}
             onChange={handleChange}
-            className="input-field mt-1"
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
+              errors.amount ? 'border-red-500' : 'border-gray-300'
+            }`}
             placeholder="0.00"
           />
+          {errors.amount && (
+            <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
               Status *
             </label>
             <select
@@ -224,7 +283,7 @@ export default function PaymentForm({ payment, onClose }) {
               required
               value={formData.status}
               onChange={handleChange}
-              className="input-field mt-1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             >
               {paymentStatuses.map((status) => (
                 <option key={status} value={status}>
@@ -235,7 +294,7 @@ export default function PaymentForm({ payment, onClose }) {
           </div>
 
           <div>
-            <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700">
+            <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-1">
               Payment Method *
             </label>
             <select
@@ -244,7 +303,7 @@ export default function PaymentForm({ payment, onClose }) {
               required
               value={formData.paymentMethod}
               onChange={handleChange}
-              className="input-field mt-1"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             >
               {paymentMethods.map((method) => (
                 <option key={method} value={method}>
@@ -256,7 +315,7 @@ export default function PaymentForm({ payment, onClose }) {
         </div>
 
         <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700">
+          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
             Notes
           </label>
           <textarea
@@ -265,25 +324,33 @@ export default function PaymentForm({ payment, onClose }) {
             rows={3}
             value={formData.notes}
             onChange={handleChange}
-            className="input-field mt-1"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
             placeholder="Any additional notes about this payment..."
           />
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4">
+        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
           <button
             type="button"
             onClick={onClose}
-            className="btn-secondary"
+            disabled={loading}
+            className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors font-medium disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={loading}
-            className="btn-primary disabled:opacity-50"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center space-x-2"
           >
-            {loading ? 'Saving...' : (payment ? 'Update Payment' : 'Record Payment')}
+            {loading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                <span>Saving...</span>
+              </>
+            ) : (
+              <span>{payment ? 'Update Payment' : 'Record Payment'}</span>
+            )}
           </button>
         </div>
       </form>

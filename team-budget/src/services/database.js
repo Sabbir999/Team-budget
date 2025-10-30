@@ -340,7 +340,8 @@ export const paymentsAPI = {
       id: paymentId,
       amount: paymentData.amount || 0,
       status: paymentData.status || 'pending',
-      paidAt: paymentData.paidAt || Date.now(),
+      // Only set paidAt if the payment status indicates it's paid
+      paidAt: paymentData.paidAt || (paymentData.status && paymentData.status.toLowerCase() === 'paid' ? Date.now() : null),
       createdAt: Date.now(),
       updatedAt: Date.now()
     };

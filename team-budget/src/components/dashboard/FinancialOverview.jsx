@@ -3,7 +3,14 @@ import { DollarSign, TrendingUp, TrendingDown, Users, CreditCard, Target, Percen
 
 export default function FinancialOverview({ expenses, payments }) {
   const totalExpenses = expenses.reduce((sum, expense) => sum + (expense.total || 0), 0);
-  const totalCollected = payments.reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  // Only sum payments that are actually paid (status === 'paid' / 'completed' / 'confirmed')
+  const totalCollected = payments.reduce((sum, payment) => {
+    const status = (payment.status || '').toString().toLowerCase();
+    if (status === 'paid' || status === 'completed' || status === 'confirmed') {
+      return sum + (Number(payment.amount) || 0);
+    }
+    return sum;
+  }, 0);
   const outstanding = totalExpenses - totalCollected;
   const collectionRate = totalExpenses > 0 ? (totalCollected / totalExpenses) * 100 : 0;
 
