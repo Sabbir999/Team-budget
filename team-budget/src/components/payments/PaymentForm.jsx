@@ -36,10 +36,10 @@ export default function PaymentForm({ payment, onClose }) {
     teamId: currentTeam?.id || '',
     playerId: '',
     amount: '',
-    status: 'paid',
+    status: 'pending', // Changed from 'paid' to 'pending'
     paymentMethod: 'zelle',
     notes: '',
-    paidAt: Date.now()
+    paidAt: null // Changed from Date.now() to null
   });
 
   useEffect(() => {
@@ -50,15 +50,17 @@ export default function PaymentForm({ payment, onClose }) {
         teamId: payment.teamId || currentTeam?.id || '',
         playerId: payment.playerId || '',
         amount: payment.amount || '',
-        status: payment.status || 'paid',
+        status: payment.status || 'pending', // Changed here too
         paymentMethod: payment.paymentMethod || 'zelle',
         notes: payment.notes || '',
-        paidAt: payment.paidAt || Date.now()
+        paidAt: payment.paidAt || null // And here
       });
     } else {
       setFormData(prev => ({
         ...prev,
-        teamId: currentTeam?.id || ''
+        teamId: currentTeam?.id || '',
+        status: 'pending', // Ensure new payments default to pending
+        paidAt: null
       }));
     }
   }, [payment, currentTeam, currentYear]);
@@ -113,7 +115,8 @@ export default function PaymentForm({ payment, onClose }) {
         ...formData,
         amount: parseFloat(formData.amount),
         teamId: currentTeam.id,
-        paidAt: formData.paidAt || Date.now()
+        // Only set paidAt if status is actually paid
+        paidAt: formData.status === 'paid' ? (formData.paidAt || Date.now()) : null
       };
 
       if (payment) {

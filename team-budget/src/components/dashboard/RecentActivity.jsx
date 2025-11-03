@@ -1,41 +1,71 @@
 import React from 'react';
 import { Clock, UserPlus, DollarSign, CreditCard, AlertCircle } from 'lucide-react';
-import { formatDateTime } from '../../utils/helpers';
+import { formatDateTime, formatCurrency } from '../../utils/helpers';
 
 export default function RecentActivity({ players, expenses, payments }) {
-  // Generate recent activity from all data
-  const activities = [
-    // Recent player additions
-    ...players.slice(-3).map(player => ({
-      type: 'player_added',
-      message: `Added ${player.name} to the team`,
-      timestamp: player.createdAt,
-      icon: UserPlus,
-      color: 'text-green-600',
-      bgColor: 'bg-green-50'
-    })),
-    
-    // Recent expenses
-    ...expenses.slice(-3).map(expense => ({
-      type: 'expense_added',
-      message: `Recorded $${expense.total?.toFixed(2)} expense for ${expense.month} ${expense.year}`,
-      timestamp: expense.createdAt,
-      icon: DollarSign,
+  // Generate recent activity from data. We take recent candidates from each source,
+  // normalize them, sort by timestamp and then pick the top N to display.
+  const toTimestamp = (item) => item?.createdAt || item?.updatedAt || 0;
+
+  // Map all items (or a reasonable recent window) so updates that change updatedAt are captured.
+  const recentPlayerWindow = players.length > 100 ? players.slice(-100) : players;
+  const playerActivities = recentPlayerWindow.map(player => ({
+    type: 'player_added',
+    message: `Added ${player.name} to the team`,
+    timestamp: toTimestamp(player),
+    icon: UserPlus,
+    color: 'text-green-600',
+    bgColor: 'bg-green-50'
+  }));
+
+  const recentExpenseWindow = expenses.length > 100 ? expenses.slice(-100) : expenses;
+  const expenseActivities = recentExpenseWindow.map(expense => ({
+    type: 'expense_added',
+    message: `Recorded ${formatCurrency(expense.total)} expense for ${expense.month || ''} ${expense.year || ''}`.trim(),
+    timestamp: toTimestamp(expense),
+    icon: DollarSign,
+    color: 'text-yellow-600',
+    bgColor: 'bg-yellow-50'
+  }));
+
+  const recentPaymentWindow = payments.length > 200 ? payments.slice(-200) : payments;
+  const paymentActivities = recentPaymentWindow.map(payment => {
+    const status = (payment.status || '').toString().toLowerCase();
+    const player = players.find(p => p.id === payment.playerId);
+    const playerName = player ? ` from ${player.name}` : '';
+    const period = payment.month ? ` for ${payment.month} ${payment.year || ''}` : '';
+
+    // Only show as received if EXPLICITLY marked as paid AND has paidAt timestamp
+    if ((status === 'paid' || status === 'completed' || status === 'confirmed') && payment.paidAt) {
+      return {
+        type: 'payment_received',
+        message: `Received ${formatCurrency(payment.amount)}${playerName}${period}`,
+        timestamp: payment.paidAt,
+        icon: CreditCard,
+        color: 'text-blue-600',
+        bgColor: 'bg-blue-50',
+        payment
+      };
+    }
+
+    // Otherwise show that a payment record was created (pending/unpaid)
+    return {
+      type: 'payment_recorded',
+      message: `Recorded ${formatCurrency(payment.amount)} payment${player ? ` for ${player.name}` : ''}`,
+      timestamp: toTimestamp(payment),
+      icon: AlertCircle,
       color: 'text-yellow-600',
-      bgColor: 'bg-yellow-50'
-    })),
-    
-    // Recent payments
-    ...payments.slice(-3).map(payment => ({
-      type: 'payment_received',
-      message: `Received $${payment.amount?.toFixed(2)} payment`,
-      timestamp: payment.createdAt,
-      icon: CreditCard,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50'
-    }))
-  ].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp))
-   .slice(0, 5); // Get 5 most recent activities
+      bgColor: 'bg-yellow-50',
+      payment
+    };
+  });
+
+  // Combine, sort by timestamp desc, and take top 6
+  // Combine, sort by timestamp desc, and take top 6 (most recent)
+  const activities = [...playerActivities, ...expenseActivities, ...paymentActivities]
+    .filter(a => a.timestamp && Number(a.timestamp) > 0)
+    .sort((a, b) => Number(b.timestamp) - Number(a.timestamp))
+    .slice(0, 6);
 
   if (activities.length === 0) {
     return (
@@ -58,13 +88,23 @@ export default function RecentActivity({ players, expenses, payments }) {
       <div className="space-y-4">
         {activities.map((activity, index) => {
           const Icon = activity.icon;
+          // For payments, try to include player name and month/year in the message
+          let message = activity.message;
+          if (activity.type === 'payment_received' && activity.payment) {
+            const payment = activity.payment;
+            const player = players.find(p => p.id === payment.playerId);
+            const playerName = player ? ` from ${player.name}` : '';
+            const period = payment.month ? ` for ${payment.month} ${payment.year || ''}` : '';
+            message = `Received ${formatCurrency(payment.amount)}${playerName}${period}`;
+          }
+
           return (
             <div key={index} className="flex items-start space-x-3">
               <div className={`flex-shrink-0 p-2 rounded-lg ${activity.bgColor}`}>
                 <Icon className={`h-4 w-4 ${activity.color}`} />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900">{activity.message}</p>
+                <p className="text-sm font-medium text-gray-900">{message}</p>
                 <p className="text-sm text-gray-500">
                   {formatDateTime(activity.timestamp)}
                 </p>
