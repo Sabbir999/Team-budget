@@ -9,6 +9,7 @@ import {
   PanelLeft,
   PanelLeftClose
 } from 'lucide-react';
+import logo from '../../assets/logo.png';
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
@@ -41,8 +42,8 @@ export default function Sidebar({ isOpen, onToggle }) {
           {/* Logo Section */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm">
-                <DollarSign className="h-5 w-5 text-white" />
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-sm overflow-hidden">
+                <img src={logo} alt="TeamBudget" className="h-5 w-5 object-contain" />
               </div>
               <h1 className="text-xl font-bold text-gray-900">TeamBudget</h1>
             </div>
@@ -77,11 +78,18 @@ export default function Sidebar({ isOpen, onToggle }) {
         </div>
       </div>
 
+      {/* Floating logo visible only when sidebar is closed (to the right of the toggle) */}
+      {!isOpen && (
+        <div className="fixed top-3 z-40 left-3 p-1 bg-white rounded-md shadow-sm">
+          <img src={logo} alt="logo" className="h-8 w-8 object-contain block" />
+        </div>
+      )}
+
       {/* Toggle Button - Claude Style */}
       <button
         onClick={onToggle}
         className={`fixed top-3 z-40 p-2 rounded-lg bg-white border border-gray-200/80 text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all duration-300 ease-in-out shadow-sm hover:shadow-md ${
-          isOpen ? 'left-[240px]' : 'left-3'
+          isOpen ? 'left-[240px]' : 'left-16'
         }`}
         title={isOpen ? 'Close sidebar' : 'Open sidebar'}
       >
