@@ -112,6 +112,23 @@ export default function PlayerCard({ player, teamName, onEdit }) {
         )}
       </div>
 
+      {/* Custom Fields Display */}
+      {player.customFields && Object.keys(player.customFields).length > 0 && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <h4 className="text-sm font-medium text-gray-900 mb-2">Additional Info</h4>
+          <div className="space-y-1">
+            {Object.entries(player.customFields).map(([key, value]) => (
+              value && (
+                <div key={key} className="flex justify-between text-sm">
+                  <span className="text-gray-600 font-medium">{key}:</span>
+                  <span className="text-gray-900">{value}</span>
+                </div>
+              )
+            ))}
+          </div>
+        </div>
+      )}
+
       {player.notes && (
         <div className="mt-4 pt-4 border-t border-gray-200">
           <p className="text-sm text-gray-600 line-clamp-2">{player.notes}</p>

@@ -2,97 +2,143 @@ import React, { useState, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import Modal from '../common/Modal';
 import { Plus, X } from 'lucide-react';
+import { sportsConfig, expenseCategories } from '../../config/sportsConfig'; // 🆕 ADD IMPORT
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'
 ];
 
-const shuttlecockOptions = [
-  'Aeroplane',
-  'Ling-Mei',
-  'Yonex AS-50',
-  'Yonex AS-40',
-  'Victor Gold',
-  'Li-Ning A+600',
-  'Custom'
-];
-
 export default function ExpenseForm({ expense, onClose }) {
-  const { createExpense, updateExpense, currentTeam } = useData();
+  const { createExpense, updateExpense, currentTeam, currentSport, setCurrentSport } = useData(); // 🆕 ADD SPORT
   const [loading, setLoading] = useState(false);
   const currentYear = new Date().getFullYear();
   
-  const [formData, setFormData] = useState({
-    month: months[new Date().getMonth()],
-    year: currentYear,
-    teamId: currentTeam?.id || '',
-    indoor: 0,
-    shuttlecock: 0,
-    equipment: 0,
-    other: 0,
-    playersCount: 0,
-    shuttlecockUsed: [],
-    notes: ''
-  });
+  const sportConfig = sportsConfig[currentSport]; // 🆕 GET SPORT CONFIG
+  
+  // 🆕 INITIALIZE FORM DATA BASED ON SPORT
+  const initializeFormData = () => {
+    const baseData = {
+      month: months[new Date().getMonth()],
+      year: currentYear,
+      teamId: currentTeam?.id || '',
+      playersCount: 0,
+      notes: '',
+      sport: currentSport // 🆕 INCLUDE SPORT
+    };
+    
+    // Add sport-specific fields
+    sportConfig.defaultFields.forEach(field => {
+      baseData[field] = 0;
+    });
+    
+    // Initialize dynamic fields
+    if (sportConfig.dynamicFields) {
+      Object.keys(sportConfig.dynamicFields).forEach(field => {
+        const fieldConfig = sportConfig.dynamicFields[field];
+        if (fieldConfig.type === 'multi-select') {
+          baseData[field] = [];
+        } else {
+          baseData[field] = '';
+        }
+      });
+    }
+    
+    return baseData;
+  };
 
-  // State for managing shuttlecock selections
-  const [shuttlecocks, setShuttlecocks] = useState([
-    { id: Date.now(), type: '', customName: '' }
-  ]);
+  const [formData, setFormData] = useState(initializeFormData());
+  const [dynamicFields, setDynamicFields] = useState({}); // 🆕 DYNAMIC FIELDS STATE
+
+  // 🆕 INITIALIZE DYNAMIC FIELDS
+  const initializeDynamicFields = () => {
+    const initialDynamicFields = {};
+    if (sportConfig.dynamicFields) {
+      Object.keys(sportConfig.dynamicFields).forEach(field => {
+        const fieldConfig = sportConfig.dynamicFields[field];
+        if (fieldConfig.type === 'multi-select') {
+          initialDynamicFields[field] = [{ id: Date.now(), value: '', customValue: '' }];
+        } else {
+          initialDynamicFields[field] = fieldConfig.type === 'select' ? '' : [];
+        }
+      });
+    }
+    setDynamicFields(initialDynamicFields);
+  };
 
   useEffect(() => {
     if (expense) {
-      setFormData({
-        month: expense.month || months[new Date().getMonth()],
-        year: expense.year || currentYear,
-        teamId: expense.teamId || currentTeam?.id || '',
-        indoor: expense.indoor || 0,
-        shuttlecock: expense.shuttlecock || 0,
-        equipment: expense.equipment || 0,
-        other: expense.other || 0,
-        playersCount: expense.playersCount || 0,
-        shuttlecockUsed: expense.shuttlecockUsed || [],
-        notes: expense.notes || ''
-      });
-
-      // Parse existing shuttlecock data
-      if (expense.shuttlecockUsed && Array.isArray(expense.shuttlecockUsed) && expense.shuttlecockUsed.length > 0) {
-        setShuttlecocks(expense.shuttlecockUsed.map((item, index) => ({
-          id: Date.now() + index,
-          type: item.type === 'Custom' ? 'Custom' : item.type,
-          customName: item.type === 'Custom' ? item.customName : ''
-        })));
+      // If editing existing expense, use its data
+      const expenseData = {
+        ...initializeFormData(),
+        ...expense
+      };
+      setFormData(expenseData);
+      
+      // Initialize dynamic fields for existing expense
+      if (expense.sport && sportsConfig[expense.sport]?.dynamicFields) {
+        const sportDynamicFields = {};
+        Object.keys(sportsConfig[expense.sport].dynamicFields).forEach(field => {
+          if (expense[field]) {
+            if (Array.isArray(expense[field])) {
+              sportDynamicFields[field] = expense[field].map((item, index) => ({
+                id: Date.now() + index,
+                value: item.type === 'Custom' ? 'Custom' : item.type,
+                customValue: item.type === 'Custom' ? item.customName : ''
+              }));
+            } else {
+              sportDynamicFields[field] = expense[field];
+            }
+          } else {
+            const fieldConfig = sportsConfig[expense.sport].dynamicFields[field];
+            sportDynamicFields[field] = fieldConfig.type === 'multi-select' 
+              ? [{ id: Date.now(), value: '', customValue: '' }] 
+              : '';
+          }
+        });
+        setDynamicFields(sportDynamicFields);
       }
     } else {
-      setFormData(prev => ({
+      setFormData(initializeFormData());
+      initializeDynamicFields();
+    }
+  }, [expense, currentTeam, currentYear, currentSport]); // 🆕 ADD currentSport DEPENDENCY
+
+  // 🆕 HANDLE SPORT CHANGE
+  const handleSportChange = (sport) => {
+    setCurrentSport(sport);
+  };
+
+  // 🆕 DYNAMIC FIELD HANDLERS
+  const addDynamicFieldItem = (fieldName) => {
+    setDynamicFields(prev => ({
+      ...prev,
+      [fieldName]: [...prev[fieldName], { id: Date.now(), value: '', customValue: '' }]
+    }));
+  };
+
+  const removeDynamicFieldItem = (fieldName, id) => {
+    if (dynamicFields[fieldName] && dynamicFields[fieldName].length > 1) {
+      setDynamicFields(prev => ({
         ...prev,
-        teamId: currentTeam?.id || ''
+        [fieldName]: prev[fieldName].filter(item => item.id !== id)
       }));
     }
-  }, [expense, currentTeam, currentYear]);
-
-  const addShuttlecock = () => {
-    setShuttlecocks([...shuttlecocks, { id: Date.now(), type: '', customName: '' }]);
   };
 
-  const removeShuttlecock = (id) => {
-    if (shuttlecocks.length > 1) {
-      setShuttlecocks(shuttlecocks.filter(s => s.id !== id));
-    }
-  };
-
-  const updateShuttlecock = (id, field, value) => {
-    setShuttlecocks(shuttlecocks.map(s => 
-      s.id === id ? { ...s, [field]: value } : s
-    ));
+  const updateDynamicFieldItem = (fieldName, id, field, value) => {
+    setDynamicFields(prev => ({
+      ...prev,
+      [fieldName]: prev[fieldName].map(item => 
+        item.id === id ? { ...item, [field]: value } : item
+      )
+    }));
   };
 
   const calculateTotal = () => {
-    return (formData.indoor || 0) + 
-           (formData.shuttlecock || 0) + 
-           (formData.equipment || 0) + 
-           (formData.other || 0);
+    return sportConfig.defaultFields.reduce((total, field) => {
+      return total + (parseFloat(formData[field]) || 0);
+    }, 0);
   };
 
   const calculatePerPerson = () => {
@@ -109,28 +155,38 @@ export default function ExpenseForm({ expense, onClose }) {
       return;
     }
 
-    // Validate shuttlecock selections
-    const validShuttlecocks = shuttlecocks.filter(s => {
-      if (!s.type) return false;
-      if (s.type === 'Custom' && !s.customName.trim()) return false;
-      return true;
-    });
-
-    // Format shuttlecock data
-    const shuttlecockData = validShuttlecocks.map(s => ({
-      type: s.type,
-      customName: s.type === 'Custom' ? s.customName.trim() : s.type
-    }));
-
     setLoading(true);
 
     try {
+      // 🆕 FORMAT DYNAMIC FIELDS FOR DATABASE
+      const formattedDynamicFields = {};
+      if (sportConfig.dynamicFields) {
+        Object.keys(sportConfig.dynamicFields).forEach(field => {
+          const fieldConfig = sportConfig.dynamicFields[field];
+          if (fieldConfig.type === 'multi-select') {
+            const validItems = dynamicFields[field]?.filter(item => {
+              if (!item.value) return false;
+              if (item.value === 'Custom' && !item.customValue.trim()) return false;
+              return true;
+            });
+            
+            formattedDynamicFields[field] = validItems.map(item => ({
+              type: item.value,
+              customName: item.value === 'Custom' ? item.customValue.trim() : item.value
+            }));
+          } else {
+            formattedDynamicFields[field] = dynamicFields[field];
+          }
+        });
+      }
+
       const expenseData = {
         ...formData,
         teamId: currentTeam.id,
         total: calculateTotal(),
         perPerson: calculatePerPerson(),
-        shuttlecockUsed: shuttlecockData
+        sport: currentSport, // 🆕 INCLUDE SPORT
+        ...formattedDynamicFields // 🆕 INCLUDE DYNAMIC FIELDS
       };
 
       if (expense) {
@@ -163,6 +219,105 @@ export default function ExpenseForm({ expense, onClose }) {
     }));
   };
 
+  // 🆕 RENDER DYNAMIC FIELDS
+  const renderDynamicFields = () => {
+    if (!sportConfig.dynamicFields) return null;
+
+    return Object.entries(sportConfig.dynamicFields).map(([fieldName, fieldConfig]) => {
+      if (fieldConfig.type === 'multi-select') {
+        const fieldItems = dynamicFields[fieldName] || [];
+        
+        return (
+          <div key={fieldName} className="border border-gray-200 rounded-lg p-4 bg-gray-50">
+            <div className="flex justify-between items-center mb-3">
+              <label className="block text-sm font-medium text-gray-700">
+                {fieldConfig.label}
+              </label>
+              <button
+                type="button"
+                onClick={() => addDynamicFieldItem(fieldName)}
+                className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors"
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add More
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {fieldItems.map((item, index) => (
+                <div key={item.id} className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <select
+                      value={item.value}
+                      onChange={(e) => updateDynamicFieldItem(fieldName, item.id, 'value', e.target.value)}
+                      className="input-field w-full"
+                    >
+                      <option value="">Select {fieldConfig.label.toLowerCase()}</option>
+                      {fieldConfig.options.map((option) => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {item.value === 'Custom' && (
+                    <div className="flex-1">
+                      <input
+                        type="text"
+                        value={item.customValue}
+                        onChange={(e) => updateDynamicFieldItem(fieldName, item.id, 'customValue', e.target.value)}
+                        placeholder="Enter custom name"
+                        className="input-field w-full"
+                      />
+                    </div>
+                  )}
+
+                  {fieldItems.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeDynamicFieldItem(fieldName, item.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                      title={`Remove ${fieldConfig.label.toLowerCase()}`}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-gray-500 mt-2">
+              Select multiple {fieldConfig.label.toLowerCase()} if you used different types
+            </p>
+          </div>
+        );
+      }
+
+      if (fieldConfig.type === 'select') {
+        return (
+          <div key={fieldName}>
+            <label htmlFor={fieldName} className="block text-sm font-medium text-gray-700">
+              {fieldConfig.label}
+            </label>
+            <select
+              id={fieldName}
+              name={fieldName}
+              value={dynamicFields[fieldName] || ''}
+              onChange={(e) => setDynamicFields(prev => ({ ...prev, [fieldName]: e.target.value }))}
+              className="input-field mt-1"
+            >
+              <option value="">Select {fieldConfig.label.toLowerCase()}</option>
+              {fieldConfig.options.map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+          </div>
+        );
+      }
+
+      return null;
+    });
+  };
+
   const total = calculateTotal();
   const perPerson = calculatePerPerson();
 
@@ -173,6 +328,31 @@ export default function ExpenseForm({ expense, onClose }) {
       size="lg"
     >
       <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
+        
+        {/* 🆕 SPORT SELECTION */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Sport *
+          </label>
+          <div className="grid grid-cols-3 gap-2">
+            {Object.entries(sportsConfig).map(([sportKey, sport]) => (
+              <button
+                key={sportKey}
+                type="button"
+                onClick={() => handleSportChange(sportKey)}
+                className={`p-3 rounded-lg border-2 transition-all ${
+                  currentSport === sportKey
+                    ? 'border-blue-500 bg-blue-50 text-blue-700'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                <div className="text-2xl mb-1">{sport.icon}</div>
+                <div className="text-sm font-medium">{sport.name}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label htmlFor="month" className="block text-sm font-medium text-gray-700">
@@ -210,136 +390,32 @@ export default function ExpenseForm({ expense, onClose }) {
           </div>
         </div>
 
+        {/* 🆕 SPORT-SPECIFIC EXPENSE FIELDS */}
         <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="indoor" className="block text-sm font-medium text-gray-700">
-              Indoor Court Fee ($)
-            </label>
-            <input
-              type="number"
-              id="indoor"
-              name="indoor"
-              step="0.01"
-              min="0"
-              value={formData.indoor}
-              onChange={handleChange}
-              className="input-field mt-1"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="shuttlecock" className="block text-sm font-medium text-gray-700">
-              Shuttlecock Cost ($)
-            </label>
-            <input
-              type="number"
-              id="shuttlecock"
-              name="shuttlecock"
-              step="0.01"
-              min="0"
-              value={formData.shuttlecock}
-              onChange={handleChange}
-              className="input-field mt-1"
-            />
-          </div>
-        </div>
-
-        {/* Shuttlecock Selection Section */}
-        <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
-          <div className="flex justify-between items-center mb-3">
-            <label className="block text-sm font-medium text-gray-700">
-              Shuttlecocks Used
-            </label>
-            <button
-              type="button"
-              onClick={addShuttlecock}
-              className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 rounded-md transition-colors"
-            >
-              <Plus className="h-3 w-3 mr-1" />
-              Add More
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {shuttlecocks.map((shuttlecock, index) => (
-              <div key={shuttlecock.id} className="flex gap-2 items-start">
-                <div className="flex-1">
-                  <select
-                    value={shuttlecock.type}
-                    onChange={(e) => updateShuttlecock(shuttlecock.id, 'type', e.target.value)}
-                    className="input-field w-full"
-                  >
-                    <option value="">Select shuttlecock type</option>
-                    {shuttlecockOptions.map((option) => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {shuttlecock.type === 'Custom' && (
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      value={shuttlecock.customName}
-                      onChange={(e) => updateShuttlecock(shuttlecock.id, 'customName', e.target.value)}
-                      placeholder="Enter custom name"
-                      className="input-field w-full"
-                    />
-                  </div>
-                )}
-
-                {shuttlecocks.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => removeShuttlecock(shuttlecock.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-md transition-colors"
-                    title="Remove shuttlecock"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
+          {sportConfig.defaultFields.map(field => {
+            const fieldConfig = sportConfig.expenseFields[field];
+            return (
+              <div key={field}>
+                <label htmlFor={field} className="block text-sm font-medium text-gray-700">
+                  {fieldConfig.label} ($)
+                </label>
+                <input
+                  type="number"
+                  id={field}
+                  name={field}
+                  step="0.01"
+                  min="0"
+                  value={formData[field]}
+                  onChange={handleChange}
+                  className="input-field mt-1"
+                />
               </div>
-            ))}
-          </div>
-
-          <p className="text-xs text-gray-500 mt-2">
-            Select multiple shuttlecocks if you used different types during play
-          </p>
+            );
+          })}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label htmlFor="equipment" className="block text-sm font-medium text-gray-700">
-              Equipment Cost ($)
-            </label>
-            <input
-              type="number"
-              id="equipment"
-              name="equipment"
-              step="0.01"
-              min="0"
-              value={formData.equipment}
-              onChange={handleChange}
-              className="input-field mt-1"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="other" className="block text-sm font-medium text-gray-700">
-              Other Expenses ($)
-            </label>
-            <input
-              type="number"
-              id="other"
-              name="other"
-              step="0.01"
-              min="0"
-              value={formData.other}
-              onChange={handleChange}
-              className="input-field mt-1"
-            />
-          </div>
-        </div>
+        {/* 🆕 DYNAMIC FIELDS */}
+        {renderDynamicFields()}
 
         <div>
           <label htmlFor="playersCount" className="block text-sm font-medium text-gray-700">

@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
 import PlayerForm from '../components/players/PlayerForm';
 import PlayerCard from '../components/players/PlayerCard';
-import { Plus, Search, Filter, Users } from 'lucide-react';
+import { Plus, Search, Users } from 'lucide-react';
 
 export default function Players() {
   const { players, currentTeam, teams } = useData();
@@ -10,7 +10,6 @@ export default function Players() {
   const [editingPlayer, setEditingPlayer] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [teamFilter, setTeamFilter] = useState('all');
 
   const handleEdit = (player) => {
     setEditingPlayer(player);
@@ -22,21 +21,20 @@ export default function Players() {
     setEditingPlayer(null);
   };
 
-  // Filter players based on search, status, and team
+  // Filter players based on search and status (always for current team)
   const filteredPlayers = useMemo(() => {
     return players.filter(player => {
       const matchesSearch = player.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           player.email?.toLowerCase().includes(searchTerm.toLowerCase());
-      
+                           player.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           (player.customFields && Object.values(player.customFields).some(value => 
+                             value?.toString().toLowerCase().includes(searchTerm.toLowerCase())
+                           ));
       const matchesStatus = statusFilter === 'all' || 
                            (statusFilter === 'active' && player.isActive) ||
                            (statusFilter === 'inactive' && !player.isActive);
-      
-      const matchesTeam = teamFilter === 'all' || player.teamId === teamFilter;
-      
-      return matchesSearch && matchesStatus && matchesTeam;
+      return matchesSearch && matchesStatus;
     });
-  }, [players, searchTerm, statusFilter, teamFilter]);
+  }, [players, searchTerm, statusFilter]);
 
   const getTeamName = (teamId) => {
     const team = teams.find(t => t.id === teamId);
@@ -79,7 +77,7 @@ export default function Players() {
       </div>
 
       {/* Filters */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
@@ -90,7 +88,6 @@ export default function Players() {
             className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
           />
         </div>
-        
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -100,23 +97,10 @@ export default function Players() {
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
-
-        <select
-          value={teamFilter}
-          onChange={(e) => setTeamFilter(e.target.value)}
-          className="block w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-        >
-          <option value="all">All Teams</option>
-          {teams.map((team) => (
-            <option key={team.id} value={team.id}>
-              {team.name} ({team.sportType})
-            </option>
-          ))}
-        </select>
       </div>
 
       {/* Players Summary */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 text-sm">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-sm">
         <div className="bg-blue-50 p-4 rounded-lg border border-blue-200">
           <div className="text-blue-800 font-medium">Total Players</div>
           <div className="text-2xl font-bold text-blue-600">{players.length}</div>
@@ -125,12 +109,6 @@ export default function Players() {
           <div className="text-green-800 font-medium">Active Players</div>
           <div className="text-2xl font-bold text-green-600">
             {players.filter(p => p.isActive).length}
-          </div>
-        </div>
-        <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
-          <div className="text-purple-800 font-medium">Teams</div>
-          <div className="text-2xl font-bold text-purple-600">
-            {new Set(players.map(p => p.teamId)).size}
           </div>
         </div>
       </div>

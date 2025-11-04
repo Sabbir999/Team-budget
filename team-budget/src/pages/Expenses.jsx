@@ -2,15 +2,17 @@ import React, { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
 import ExpenseForm from '../components/expenses/ExpenseForm';
 import ExpenseTable from '../components/expenses/ExpenseTable';
-import { Plus, DollarSign, Calendar, Users, Feather, Filter, Search, Home } from 'lucide-react';
+import { Plus, DollarSign, Calendar, Users, Feather, Filter, Search, Home, Trophy } from 'lucide-react';
+import { sportsConfig } from '../config/sportsConfig'; // 🆕 ADD IMPORT
 
 export default function Expenses() {
-  const { expenses, currentTeam } = useData();
+  const { expenses, currentTeam, currentSport, setCurrentSport } = useData(); // 🆕 ADD SPORT
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [yearFilter, setYearFilter] = useState('all');
   const [monthFilter, setMonthFilter] = useState('all');
+  const [sportFilter, setSportFilter] = useState('all'); // 🆕 ADD SPORT FILTER
 
   const handleEdit = (expense) => {
     setEditingExpense(expense);
@@ -22,34 +24,93 @@ export default function Expenses() {
     setEditingExpense(null);
   };
 
-  // Filter expenses
+  // 🆕 UPDATED FILTER EXPENSES - Include sport filter
   const filteredExpenses = useMemo(() => {
     return expenses.filter(expense => {
       const matchesSearch = expense.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            expense.month?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesYear = yearFilter === 'all' || expense.year?.toString() === yearFilter;
       const matchesMonth = monthFilter === 'all' || expense.month === monthFilter;
+      const matchesSport = sportFilter === 'all' || expense.sport === sportFilter; // 🆕 SPORT FILTER
       
-      return matchesSearch && matchesYear && matchesMonth;
+      return matchesSearch && matchesYear && matchesMonth && matchesSport;
     });
-  }, [expenses, searchTerm, yearFilter, monthFilter]);
+  }, [expenses, searchTerm, yearFilter, monthFilter, sportFilter]);
 
-  // Get unique years and months for filters
-  const { years, months } = useMemo(() => {
+  // Get unique years, months, and sports for filters
+  const { years, months, sports } = useMemo(() => {
     const uniqueYears = ['all', ...new Set(expenses.map(e => e.year?.toString()).filter(Boolean))];
     const uniqueMonths = ['all', ...new Set(expenses.map(e => e.month).filter(Boolean))];
-    return { years: uniqueYears, months: uniqueMonths };
+    const uniqueSports = ['all', ...new Set(expenses.map(e => e.sport).filter(Boolean))]; // 🆕 SPORTS FILTER
+    return { years: uniqueYears, months: uniqueMonths, sports: uniqueSports };
   }, [expenses]);
 
-  // Calculate statistics
+  // 🆕 UPDATED STATISTICS - Multi-sport aware
   const stats = useMemo(() => {
     const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.total || 0), 0);
-    const totalIndoorCost = expenses.reduce((sum, exp) => sum + (exp.indoor || 0), 0);
     const totalPlayers = expenses.reduce((sum, exp) => sum + (exp.playersCount || 0), 0);
-    const shuttlecockExpenses = expenses.reduce((sum, exp) => sum + (exp.shuttlecock || 0), 0);
     
-    return { totalExpenses, totalIndoorCost, totalPlayers, shuttlecockExpenses };
+    // 🆕 CALCULATE SPORT-SPECIFIC STATS
+    const sportStats = {
+      badminton: { shuttlecock: 0, indoor: 0 },
+      cricket: { ball: 0, ground: 0 },
+      football: { balls: 0, field: 0 },
+      basketball: { balls: 0, court: 0 },
+      tennis: { balls: 0, court: 0 }
+    };
+
+    expenses.forEach(expense => {
+      const sport = expense.sport || 'badminton';
+      const sportConfig = sportsConfig[sport];
+      
+      if (sportConfig) {
+        sportConfig.defaultFields.forEach(field => {
+          if (!sportStats[sport][field]) {
+            sportStats[sport][field] = 0;
+          }
+          sportStats[sport][field] += expense[field] || 0;
+        });
+      }
+    });
+
+    // 🆕 CALCULATE TOP EXPENSE CATEGORIES
+    const totalEquipmentCost = expenses.reduce((sum, exp) => {
+      const sportConfig = sportsConfig[exp.sport] || sportsConfig.badminton;
+      let equipmentTotal = 0;
+      
+      // Sum all equipment-related fields
+      Object.entries(sportConfig.expenseFields).forEach(([field, config]) => {
+        if (config.category === 'equipment') {
+          equipmentTotal += exp[field] || 0;
+        }
+      });
+      
+      return sum + equipmentTotal;
+    }, 0);
+
+    const totalVenueCost = expenses.reduce((sum, exp) => {
+      const sportConfig = sportsConfig[exp.sport] || sportsConfig.badminton;
+      let venueTotal = 0;
+      
+      // Sum all venue-related fields
+      Object.entries(sportConfig.expenseFields).forEach(([field, config]) => {
+        if (config.category === 'venue') {
+          venueTotal += exp[field] || 0;
+        }
+      });
+      
+      return sum + venueTotal;
+    }, 0);
+
+    return { 
+      totalExpenses, 
+      totalPlayers, 
+      totalEquipmentCost,
+      totalVenueCost,
+      sportStats 
+    };
   }, [expenses]);
+
 
   if (!currentTeam) {
     return (
@@ -76,6 +137,13 @@ export default function Expenses() {
           <p className="mt-2 text-gray-600">
             Track and manage expenses for {currentTeam.name}
           </p>
+          {/* 🆕 CURRENT SPORT INDICATOR */}
+          <div className="flex items-center mt-1">
+            <Trophy className="h-4 w-4 text-gray-400 mr-2" />
+            <span className="text-sm text-gray-500">
+              Current sport: <span className="font-medium">{sportsConfig[currentSport]?.name}</span>
+            </span>
+          </div>
         </div>
         <button
           onClick={() => setShowForm(true)}
@@ -86,7 +154,7 @@ export default function Expenses() {
         </button>
       </div>
 
-      {/* Stats Overview */}
+      {/* 🆕 UPDATED STATS OVERVIEW */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center">
@@ -106,8 +174,8 @@ export default function Expenses() {
               <Home className="h-6 w-6 text-green-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">Total Indoor Cost</p>
-              <p className="text-2xl font-bold text-gray-900">${stats.totalIndoorCost.toFixed(2)}</p>
+              <p className="text-sm font-medium text-gray-600">Venue Costs</p>
+              <p className="text-2xl font-bold text-gray-900">${stats.totalVenueCost.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -118,8 +186,8 @@ export default function Expenses() {
               <Feather className="h-6 w-6 text-purple-600" />
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-600">Shuttlecock Costs</p>
-              <p className="text-2xl font-bold text-gray-900">${stats.shuttlecockExpenses.toFixed(2)}</p>
+              <p className="text-sm font-medium text-gray-600">Equipment Costs</p>
+              <p className="text-2xl font-bold text-gray-900">${stats.totalEquipmentCost.toFixed(2)}</p>
             </div>
           </div>
         </div>
@@ -132,14 +200,16 @@ export default function Expenses() {
             <div>
               <p className="text-sm font-medium text-gray-600">Total Records</p>
               <p className="text-2xl font-bold text-gray-900">{expenses.length}</p>
+              {/* Sport breakdown removed */}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Search and Filters */}
+
+      {/* 🆕 UPDATED SEARCH AND FILTERS - Added sport filter */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-2 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
             <input
@@ -172,19 +242,35 @@ export default function Expenses() {
               <option key={month} value={month}>{month}</option>
             ))}
           </select>
+
+          {/* 🆕 SPORT FILTER */}
+          <select
+            value={sportFilter}
+            onChange={(e) => setSportFilter(e.target.value)}
+            className="px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors bg-white"
+          >
+            <option value="all">All Sports</option>
+            {sports.filter(s => s !== 'all').map(sport => (
+              <option key={sport} value={sport}>
+                {sportsConfig[sport]?.icon} {sportsConfig[sport]?.name}
+              </option>
+            ))}
+          </select>
         </div>
         
         {/* Results Count */}
         <div className="mt-4 flex justify-between items-center text-sm text-gray-600">
           <span>
             Showing {filteredExpenses.length} of {expenses.length} expense records
+            {sportFilter !== 'all' && ` in ${sportsConfig[sportFilter]?.name}`}
           </span>
-          {(searchTerm || yearFilter !== 'all' || monthFilter !== 'all') && (
+          {(searchTerm || yearFilter !== 'all' || monthFilter !== 'all' || sportFilter !== 'all') && (
             <button
               onClick={() => {
                 setSearchTerm('');
                 setYearFilter('all');
                 setMonthFilter('all');
+                setSportFilter('all');
               }}
               className="text-blue-600 hover:text-blue-700 font-medium transition-colors"
             >
@@ -205,7 +291,7 @@ export default function Expenses() {
           </h3>
           <p className="text-gray-600 max-w-md mx-auto mb-8 leading-relaxed">
             {expenses.length === 0 
-              ? 'Start tracking your team expenses including court fees, shuttlecock costs, and equipment purchases.'
+              ? 'Start tracking your team expenses including venue costs, equipment purchases, and other sport-specific expenses.'
               : 'No expenses match your current filters. Try adjusting your search criteria.'
             }
           </p>

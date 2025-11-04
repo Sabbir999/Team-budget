@@ -26,6 +26,7 @@ export function DataProvider({ children }) {
   const [allExpenses, setAllExpenses] = useState([]);
   const [allPayments, setAllPayments] = useState([]);
   const [currentTeam, setCurrentTeam] = useState(null);
+  const [currentSport, setCurrentSport] = useState('badminton'); // 🆕 ADD SPORT STATE
   const [loading, setLoading] = useState(true);
 
   // Filtered data based on current team
@@ -92,6 +93,19 @@ export function DataProvider({ children }) {
     }
   };
 
+  // 🆕 UPDATE CURRENT SPORT
+  const handleSetCurrentSport = (sport) => {
+    console.log('🔄 Switching to sport:', sport);
+    setCurrentSport(sport);
+    
+    // Store in localStorage for persistence
+    if (sport) {
+      localStorage.setItem('currentSport', sport);
+    } else {
+      localStorage.removeItem('currentSport');
+    }
+  };
+
   // Restore current team from localStorage on mount
   useEffect(() => {
     if (teams.length > 0) {
@@ -105,6 +119,15 @@ export function DataProvider({ children }) {
       }
     }
   }, [teams]);
+
+  // 🆕 RESTORE CURRENT SPORT FROM LOCALSTORAGE
+  useEffect(() => {
+    const savedSport = localStorage.getItem('currentSport');
+    if (savedSport) {
+      setCurrentSport(savedSport);
+      console.log('✅ Restored sport from localStorage:', savedSport);
+    }
+  }, []);
 
   // Load all players
   useEffect(() => {
@@ -237,15 +260,31 @@ export function DataProvider({ children }) {
     return playersAPI.deletePlayer(currentUser.uid, playerId);
   };
 
-  // Expense management functions
+  // 🆕 UPDATED EXPENSE MANAGEMENT FUNCTIONS - Include sport
   const createExpense = async (expenseData) => {
     if (!currentUser) throw new Error('No user logged in');
-    return expensesAPI.createExpense(currentUser.uid, expenseData);
+    
+    // Ensure sport is included in expense data
+    const expenseWithSport = {
+      ...expenseData,
+      sport: currentSport, // 🆕 Include current sport
+      createdAt: new Date().toISOString()
+    };
+    
+    console.log('➕ Creating expense with sport:', expenseWithSport.sport);
+    return expensesAPI.createExpense(currentUser.uid, expenseWithSport);
   };
 
   const updateExpense = async (expenseId, updates) => {
     if (!currentUser) throw new Error('No user logged in');
-    return expensesAPI.updateExpense(currentUser.uid, expenseId, updates);
+    
+    // Ensure sport is preserved if not provided in updates
+    const updatesWithSport = {
+      ...updates,
+      sport: updates.sport || currentSport // 🆕 Preserve sport
+    };
+    
+    return expensesAPI.updateExpense(currentUser.uid, expenseId, updatesWithSport);
   };
 
   const deleteExpense = async (expenseId) => {
@@ -276,6 +315,7 @@ export function DataProvider({ children }) {
     expenses,
     payments,
     currentTeam,
+    currentSport, // 🆕 EXPORT CURRENT SPORT
     loading,
     
     // Unfiltered data for reference
@@ -288,6 +328,9 @@ export function DataProvider({ children }) {
     updateTeam,
     deleteTeam,
     setCurrentTeam: handleSetCurrentTeam,
+    
+    // 🆕 SPORT ACTIONS
+    setCurrentSport: handleSetCurrentSport,
     
     // Player actions  
     createPlayer,

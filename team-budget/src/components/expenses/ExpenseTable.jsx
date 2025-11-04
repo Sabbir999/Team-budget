@@ -1,6 +1,7 @@
 import React from 'react';
 import { Edit2, Trash2, Users, Feather } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
+import { sportsConfig } from '../../config/sportsConfig'; // 🆕 ADD IMPORT
 
 export default function ExpenseTable({ expenses, onEdit }) {
   const { deleteExpense } = useData();
@@ -16,27 +17,85 @@ export default function ExpenseTable({ expenses, onEdit }) {
     }
   };
 
-  // Format shuttlecock display
-  const formatShuttlecocks = (shuttlecocks) => {
-    if (!shuttlecocks || !Array.isArray(shuttlecocks)) return 'None';
+  // 🆕 FORMAT DYNAMIC FIELDS DISPLAY
+  const formatDynamicFields = (expense) => {
+    if (!expense.sport || !sportsConfig[expense.sport]?.dynamicFields) return 'None';
     
-    const displayNames = shuttlecocks.map(s => 
-      s.type === 'Custom' ? s.customName : s.type
-    );
+    const dynamicData = [];
+    Object.keys(sportsConfig[expense.sport].dynamicFields).forEach(field => {
+      if (expense[field]) {
+        if (Array.isArray(expense[field])) {
+          const items = expense[field].map(item => 
+            item.type === 'Custom' ? item.customName : item.type
+          ).filter(Boolean);
+          if (items.length > 0) {
+            if (items.length === 1) {
+              dynamicData.push(items[0]);
+            } else if (items.length === 2) {
+              dynamicData.push(items.join(' & '));
+            } else {
+              dynamicData.push(`${items.length} types`);
+            }
+          }
+        } else if (expense[field]) {
+          dynamicData.push(expense[field]);
+        }
+      }
+    });
     
-    if (displayNames.length === 1) return displayNames[0];
-    if (displayNames.length === 2) return displayNames.join(' & ');
-    return `${displayNames.length} types`;
+    return dynamicData.length > 0 ? dynamicData.join(', ') : 'None';
   };
 
-  // Calculate totals
-  const totals = expenses.reduce((acc, expense) => ({
-    indoor: acc.indoor + (expense.indoor || 0),
-    shuttlecock: acc.shuttlecock + (expense.shuttlecock || 0),
-    equipment: acc.equipment + (expense.equipment || 0),
-    other: acc.other + (expense.other || 0),
-    total: acc.total + (expense.total || 0)
-  }), { indoor: 0, shuttlecock: 0, equipment: 0, other: 0, total: 0 });
+  // 🆕 CALCULATE TOTALS BASED ON SPORT FIELDS
+  const calculateTotals = () => {
+    const totals = {
+      total: 0
+    };
+
+    expenses.forEach(expense => {
+      const sportConfig = sportsConfig[expense.sport] || sportsConfig.badminton;
+      
+      // Add all sport-specific fields to totals
+      sportConfig.defaultFields.forEach(field => {
+        if (!totals[field]) {
+          totals[field] = 0;
+        }
+        totals[field] += expense[field] || 0;
+      });
+      
+      totals.total += expense.total || 0;
+    });
+
+    return totals;
+  };
+
+  // 🆕 GET ALL UNIQUE EXPENSE FIELDS ACROSS SPORTS
+  const getAllExpenseFields = () => {
+    const allFields = new Set();
+    expenses.forEach(expense => {
+      const sportConfig = sportsConfig[expense.sport] || sportsConfig.badminton;
+      sportConfig.defaultFields.forEach(field => {
+        allFields.add(field);
+      });
+    });
+    return Array.from(allFields);
+  };
+
+  // 🆕 GET FIELD LABEL FOR DISPLAY
+  const getFieldLabel = (field, sport) => {
+    const sportConfig = sportsConfig[sport] || sportsConfig.badminton;
+    return sportConfig.expenseFields[field]?.label || field;
+  };
+
+  // 🆕 GET ABBREVIATED LABEL FOR TABLE HEADERS
+  const getAbbreviatedLabel = (field, sport) => {
+    const fullLabel = getFieldLabel(field, sport);
+    // Return first word or first 8 characters for compact display
+    return fullLabel.split(' ')[0].substring(0, 8);
+  };
+
+  const totals = calculateTotals();
+  const allExpenseFields = getAllExpenseFields();
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
@@ -48,17 +107,20 @@ export default function ExpenseTable({ expenses, onEdit }) {
                 Month/Year
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Indoor ($)
+                Sport
               </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Shuttlecock ($)
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Equipment ($)
-              </th>
-              <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                Other ($)
-              </th>
+              
+              {/* 🆕 DYNAMIC EXPENSE COLUMNS */}
+              {allExpenseFields.map(field => (
+                <th 
+                  key={field} 
+                  className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
+                  title={getFieldLabel(field, 'badminton')} // Use badminton as default for tooltip
+                >
+                  {getAbbreviatedLabel(field, 'badminton')} ($)
+                </th>
+              ))}
+              
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Total ($)
               </th>
@@ -71,7 +133,7 @@ export default function ExpenseTable({ expenses, onEdit }) {
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 <Feather className="h-4 w-4 inline mr-1" />
-                Shuttlecocks
+                Details
               </th>
               <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
                 Actions
@@ -79,85 +141,103 @@ export default function ExpenseTable({ expenses, onEdit }) {
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
-            {expenses.map((expense) => (
-              <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-semibold text-gray-900">
-                    {expense.month} {expense.year}
-                  </div>
-                  {expense.notes && (
-                    <div className="text-xs text-gray-500 mt-1 max-w-xs truncate" title={expense.notes}>
-                      {expense.notes}
+            {expenses.map((expense) => {
+              const sportConfig = sportsConfig[expense.sport] || sportsConfig.badminton;
+              
+              return (
+                <tr key={expense.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm font-semibold text-gray-900">
+                      {expense.month} {expense.year}
                     </div>
-                  )}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ${(expense.indoor || 0).toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ${(expense.shuttlecock || 0).toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ${(expense.equipment || 0).toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  ${(expense.other || 0).toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">
-                  ${(expense.total || 0).toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                  <div className="flex items-center">
-                    <Users className="h-4 w-4 text-gray-400 mr-1" />
-                    {expense.playersCount || 0}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
-                  ${(expense.perPerson || 0).toFixed(2)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm text-gray-600 max-w-xs">
-                    {formatShuttlecocks(expense.shuttlecockUsed)}
-                  </div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => onEdit(expense)}
-                      className="text-blue-600 hover:text-blue-800 transition-colors p-1 rounded-lg hover:bg-blue-50"
-                      title="Edit expense"
-                    >
-                      <Edit2 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(expense.id, `${expense.month} ${expense.year}`)}
-                      className="text-red-600 hover:text-red-800 transition-colors p-1 rounded-lg hover:bg-red-50"
-                      title="Delete expense"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+                    {expense.notes && (
+                      <div className="text-xs text-gray-500 mt-1 max-w-xs truncate" title={expense.notes}>
+                        {expense.notes}
+                      </div>
+                    )}
+                  </td>
+                  
+                  {/* 🆕 SPORT COLUMN */}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center">
+                      <span className="text-lg mr-2">{sportConfig.icon}</span>
+                      <span className="text-sm font-medium text-gray-900">
+                        {sportConfig.name}
+                      </span>
+                    </div>
+                  </td>
+                  
+                  {/* 🆕 DYNAMIC EXPENSE FIELDS */}
+                  {allExpenseFields.map(field => {
+                    const value = expense[field] || 0;
+                    const isFieldPresent = sportConfig.defaultFields.includes(field);
+                    
+                    return (
+                      <td 
+                        key={field} 
+                        className="px-6 py-4 whitespace-nowrap text-sm text-gray-900"
+                        title={isFieldPresent ? getFieldLabel(field, expense.sport) : 'Not applicable'}
+                      >
+                        {isFieldPresent ? `$${value.toFixed(2)}` : '-'}
+                      </td>
+                    );
+                  })}
+                  
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-blue-600">
+                    ${(expense.total || 0).toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center">
+                      <Users className="h-4 w-4 text-gray-400 mr-1" />
+                      {expense.playersCount || 0}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-green-600">
+                    ${(expense.perPerson || 0).toFixed(2)}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-sm text-gray-600 max-w-xs" title={formatDynamicFields(expense)}>
+                      {formatDynamicFields(expense)}
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                    <div className="flex space-x-2">
+                      <button
+                        onClick={() => onEdit(expense)}
+                        className="text-blue-600 hover:text-blue-800 transition-colors p-1 rounded-lg hover:bg-blue-50"
+                        title="Edit expense"
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(expense.id, `${expense.month} ${expense.year}`)}
+                        className="text-red-600 hover:text-red-800 transition-colors p-1 rounded-lg hover:bg-red-50"
+                        title="Delete expense"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
             
-            {/* Totals Row */}
+            {/* 🆕 UPDATED TOTALS ROW */}
             <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 TOTAL
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ${totals.indoor.toFixed(2)}
+                -
               </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ${totals.shuttlecock.toFixed(2)}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ${totals.equipment.toFixed(2)}
-              </td>
-              <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                ${totals.other.toFixed(2)}
-              </td>
+              
+              {/* 🆕 DYNAMIC TOTALS COLUMNS */}
+              {allExpenseFields.map(field => (
+                <td key={field} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  ${(totals[field] || 0).toFixed(2)}
+                </td>
+              ))}
+              
               <td className="px-6 py-4 whitespace-nowrap text-sm text-blue-700">
                 ${totals.total.toFixed(2)}
               </td>
