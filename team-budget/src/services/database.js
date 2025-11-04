@@ -1,5 +1,6 @@
 import { ref, set, get, update, remove, push, onValue, off, query, orderByChild, equalTo } from 'firebase/database';
 import { db } from '../firebase-config';
+import { getTotalCalculationFields } from '../config/sportsConfig';
 
 // Database paths
 const DB_PATHS = {
@@ -219,25 +220,18 @@ export const expensesAPI = {
   createExpense: (userId, expenseData) => {
     const expenseId = push(ref(db, `${DB_PATHS.USERS}/${userId}/${DB_PATHS.EXPENSES}`)).key;
     
-    // Calculate totals
-    const indoor = expenseData.indoor || 0;
-    const shuttlecock = expenseData.shuttlecock || 0;
-    const equipment = expenseData.equipment || 0;
-    const other = expenseData.other || 0;
-    const total = indoor + shuttlecock + equipment + other;
+    // Calculate totals using sport configuration
+    const totalFields = getTotalCalculationFields(expenseData.sport);
+    const total = totalFields.reduce((sum, key) => sum + (parseFloat(expenseData[key]) || 0), 0);
     const playersCount = expenseData.playersCount || 0;
     const perPerson = playersCount > 0 ? total / playersCount : 0;
     
     const expenseWithId = {
       ...expenseData,
       id: expenseId,
-      indoor,
-      shuttlecock,
-      equipment,
-      other,
-      total,
-      playersCount,
-      perPerson: Math.round(perPerson * 100) / 100, // Round to 2 decimal places
+      total: total,
+      playersCount: playersCount,
+      perPerson: Math.round(perPerson * 100) / 100,
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
@@ -273,33 +267,38 @@ export const expensesAPI = {
   getExpense: (userId, expenseId) => 
     get(ref(db, `${DB_PATHS.USERS}/${userId}/${DB_PATHS.EXPENSES}/${expenseId}`)),
   
-  updateExpense: (userId, expenseId, updates) => {
-    // Recalculate totals if relevant fields are updated
-    if (updates.indoor || updates.shuttlecock || updates.equipment || updates.other || updates.playersCount) {
-      const indoor = updates.indoor || 0;
-      const shuttlecock = updates.shuttlecock || 0;
-      const equipment = updates.equipment || 0;
-      const other = updates.other || 0;
-      const total = indoor + shuttlecock + equipment + other;
-      const playersCount = updates.playersCount || 0;
+  updateExpense: async (userId, expenseId, updates) => {
+    // Fetch existing expense so we can calculate totals correctly for the sport
+    const snapshot = await get(ref(db, `${DB_PATHS.USERS}/${userId}/${DB_PATHS.EXPENSES}/${expenseId}`));
+    const existing = snapshot.val() || {};
+
+    // Merge existing values with updates for calculation
+    const merged = { ...existing, ...updates };
+
+    // Recalculate totals if any of the calculation-related fields changed
+    const totalFields = getTotalCalculationFields(merged.sport || existing.sport);
+    const shouldRecalculate = totalFields.some(field => field in updates) || 'playersCount' in updates || 'sport' in updates;
+
+    if (shouldRecalculate) {
+      const total = totalFields.reduce((sum, key) => sum + (parseFloat(merged[key]) || 0), 0);
+      const playersCount = merged.playersCount || 0;
       const perPerson = playersCount > 0 ? total / playersCount : 0;
-      
+
       updates.total = total;
       updates.perPerson = Math.round(perPerson * 100) / 100;
     }
-    
+
     console.log('🔄 Updating expense:', expenseId, updates);
-    return update(ref(db, `${DB_PATHS.USERS}/${userId}/${DB_PATHS.EXPENSES}/${expenseId}`), {
-      ...updates,
-      updatedAt: Date.now()
-    })
-    .then(() => {
+    try {
+      await update(ref(db, `${DB_PATHS.USERS}/${userId}/${DB_PATHS.EXPENSES}/${expenseId}`), {
+        ...updates,
+        updatedAt: Date.now()
+      });
       console.log('✅ Expense updated successfully');
-    })
-    .catch((error) => {
+    } catch (error) {
       console.error('❌ Error updating expense:', error);
       throw error;
-    });
+    }
   },
   
   deleteExpense: (userId, expenseId) => {
@@ -328,6 +327,35 @@ export const expensesAPI = {
     });
     
     return () => off(monthQuery, 'value', unsubscribe);
+  },
+  
+  // Recalculate totals for all expenses of a user (useful migration helper)
+  recalculateAllTotals: async (userId) => {
+    const expensesRef = ref(db, `${DB_PATHS.USERS}/${userId}/${DB_PATHS.EXPENSES}`);
+    const snapshot = await get(expensesRef);
+    const data = snapshot.val() || {};
+    const updates = {};
+
+    Object.keys(data).forEach((key) => {
+      const exp = data[key];
+      const totalFields = getTotalCalculationFields(exp.sport);
+      const total = totalFields.reduce((sum, k) => sum + (parseFloat(exp[k]) || 0), 0);
+      const playersCount = exp.playersCount || 0;
+      const perPerson = playersCount > 0 ? Math.round((total / playersCount) * 100) / 100 : 0;
+
+      // Only create update if values differ
+      if ((exp.total || 0) !== total || (exp.perPerson || 0) !== perPerson) {
+        updates[`${DB_PATHS.USERS}/${userId}/${DB_PATHS.EXPENSES}/${key}/total`] = total;
+        updates[`${DB_PATHS.USERS}/${userId}/${DB_PATHS.EXPENSES}/${key}/perPerson`] = perPerson;
+        updates[`${DB_PATHS.USERS}/${userId}/${DB_PATHS.EXPENSES}/${key}/updatedAt`] = Date.now();
+      }
+    });
+
+    if (Object.keys(updates).length > 0) {
+      return update(ref(db), updates);
+    }
+
+    return Promise.resolve();
   }
 };
 
@@ -340,7 +368,6 @@ export const paymentsAPI = {
       id: paymentId,
       amount: paymentData.amount || 0,
       status: paymentData.status || 'pending',
-      // Only set paidAt if the payment status indicates it's paid
       paidAt: paymentData.paidAt || (paymentData.status && paymentData.status.toLowerCase() === 'paid' ? Date.now() : null),
       createdAt: Date.now(),
       updatedAt: Date.now()

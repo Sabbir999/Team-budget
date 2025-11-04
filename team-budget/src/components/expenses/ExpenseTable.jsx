@@ -1,7 +1,7 @@
 import React from 'react';
 import { Edit2, Trash2, Users, Feather } from 'lucide-react';
 import { useData } from '../../contexts/DataContext';
-import { sportsConfig } from '../../config/sportsConfig'; // 🆕 ADD IMPORT
+import { sportsConfig } from '../../config/sportsConfig';
 
 export default function ExpenseTable({ expenses, onEdit }) {
   const { deleteExpense } = useData();
@@ -17,7 +17,7 @@ export default function ExpenseTable({ expenses, onEdit }) {
     }
   };
 
-  // 🆕 FORMAT DYNAMIC FIELDS DISPLAY
+  // FORMAT DYNAMIC FIELDS DISPLAY
   const formatDynamicFields = (expense) => {
     if (!expense.sport || !sportsConfig[expense.sport]?.dynamicFields) return 'None';
     
@@ -46,52 +46,62 @@ export default function ExpenseTable({ expenses, onEdit }) {
     return dynamicData.length > 0 ? dynamicData.join(', ') : 'None';
   };
 
-  // 🆕 CALCULATE TOTALS BASED ON SPORT FIELDS
+  // CALCULATE TOTALS CORRECTLY - Use stored totals from expenses
   const calculateTotals = () => {
     const totals = {
       total: 0
     };
 
+    // Initialize all possible fields to 0
+    const allFields = getAllExpenseFields();
+    allFields.forEach(field => {
+      totals[field] = 0;
+    });
+
     expenses.forEach(expense => {
       const sportConfig = sportsConfig[expense.sport] || sportsConfig.badminton;
       
-      // Add all sport-specific fields to totals
-      sportConfig.defaultFields.forEach(field => {
-        if (!totals[field]) {
-          totals[field] = 0;
+      // Add all expense fields to their respective totals
+      Object.keys(sportConfig.expenseFields).forEach(field => {
+        if (totals[field] !== undefined) {
+          totals[field] += expense[field] || 0;
         }
-        totals[field] += expense[field] || 0;
       });
       
+      // Use the actual stored total from the expense
       totals.total += expense.total || 0;
     });
 
     return totals;
   };
 
-  // 🆕 GET ALL UNIQUE EXPENSE FIELDS ACROSS SPORTS
+  // GET ALL UNIQUE EXPENSE FIELDS ACROSS SPORTS
   const getAllExpenseFields = () => {
     const allFields = new Set();
     expenses.forEach(expense => {
       const sportConfig = sportsConfig[expense.sport] || sportsConfig.badminton;
-      sportConfig.defaultFields.forEach(field => {
+      Object.keys(sportConfig.expenseFields).forEach(field => {
         allFields.add(field);
       });
     });
     return Array.from(allFields);
   };
 
-  // 🆕 GET FIELD LABEL FOR DISPLAY
+  // GET FIELD LABEL FOR DISPLAY
   const getFieldLabel = (field, sport) => {
     const sportConfig = sportsConfig[sport] || sportsConfig.badminton;
     return sportConfig.expenseFields[field]?.label || field;
   };
 
-  // 🆕 GET ABBREVIATED LABEL FOR TABLE HEADERS
+  // GET ABBREVIATED LABEL FOR TABLE HEADERS
   const getAbbreviatedLabel = (field, sport) => {
     const fullLabel = getFieldLabel(field, sport);
     // Return first word or first 8 characters for compact display
-    return fullLabel.split(' ')[0].substring(0, 8);
+    const words = fullLabel.split(' ');
+    if (words.length > 1) {
+      return words.map(word => word.substring(0, 4)).join(' ');
+    }
+    return fullLabel.substring(0, 8);
   };
 
   const totals = calculateTotals();
@@ -110,12 +120,12 @@ export default function ExpenseTable({ expenses, onEdit }) {
                 Sport
               </th>
               
-              {/* 🆕 DYNAMIC EXPENSE COLUMNS */}
+              {/* DYNAMIC EXPENSE COLUMNS */}
               {allExpenseFields.map(field => (
                 <th 
                   key={field} 
                   className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider"
-                  title={getFieldLabel(field, 'badminton')} // Use badminton as default for tooltip
+                  title={getFieldLabel(field, 'badminton')}
                 >
                   {getAbbreviatedLabel(field, 'badminton')} ($)
                 </th>
@@ -157,7 +167,7 @@ export default function ExpenseTable({ expenses, onEdit }) {
                     )}
                   </td>
                   
-                  {/* 🆕 SPORT COLUMN */}
+                  {/* SPORT COLUMN */}
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
                       <span className="text-lg mr-2">{sportConfig.icon}</span>
@@ -167,10 +177,10 @@ export default function ExpenseTable({ expenses, onEdit }) {
                     </div>
                   </td>
                   
-                  {/* 🆕 DYNAMIC EXPENSE FIELDS */}
+                  {/* DYNAMIC EXPENSE FIELDS */}
                   {allExpenseFields.map(field => {
                     const value = expense[field] || 0;
-                    const isFieldPresent = sportConfig.defaultFields.includes(field);
+                    const isFieldPresent = sportConfig.expenseFields[field];
                     
                     return (
                       <td 
@@ -222,7 +232,7 @@ export default function ExpenseTable({ expenses, onEdit }) {
               );
             })}
             
-            {/* 🆕 UPDATED TOTALS ROW */}
+            {/* TOTALS ROW */}
             <tr className="bg-gradient-to-r from-gray-50 to-gray-100 font-semibold border-t-2 border-gray-300">
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                 TOTAL
@@ -231,7 +241,7 @@ export default function ExpenseTable({ expenses, onEdit }) {
                 -
               </td>
               
-              {/* 🆕 DYNAMIC TOTALS COLUMNS */}
+              {/* DYNAMIC TOTALS COLUMNS */}
               {allExpenseFields.map(field => (
                 <td key={field} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                   ${(totals[field] || 0).toFixed(2)}

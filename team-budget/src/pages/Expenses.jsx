@@ -3,16 +3,16 @@ import { useData } from '../contexts/DataContext';
 import ExpenseForm from '../components/expenses/ExpenseForm';
 import ExpenseTable from '../components/expenses/ExpenseTable';
 import { Plus, DollarSign, Calendar, Users, Feather, Filter, Search, Home, Trophy } from 'lucide-react';
-import { sportsConfig } from '../config/sportsConfig'; // 🆕 ADD IMPORT
+import { sportsConfig } from '../config/sportsConfig';
 
 export default function Expenses() {
-  const { expenses, currentTeam, currentSport, setCurrentSport } = useData(); // 🆕 ADD SPORT
+  const { expenses, currentTeam, currentSport, setCurrentSport } = useData();
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [yearFilter, setYearFilter] = useState('all');
   const [monthFilter, setMonthFilter] = useState('all');
-  const [sportFilter, setSportFilter] = useState('all'); // 🆕 ADD SPORT FILTER
+  const [sportFilter, setSportFilter] = useState('all');
 
   const handleEdit = (expense) => {
     setEditingExpense(expense);
@@ -24,14 +24,14 @@ export default function Expenses() {
     setEditingExpense(null);
   };
 
-  // 🆕 UPDATED FILTER EXPENSES - Include sport filter
+  // FILTER EXPENSES
   const filteredExpenses = useMemo(() => {
     return expenses.filter(expense => {
       const matchesSearch = expense.notes?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                            expense.month?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesYear = yearFilter === 'all' || expense.year?.toString() === yearFilter;
       const matchesMonth = monthFilter === 'all' || expense.month === monthFilter;
-      const matchesSport = sportFilter === 'all' || expense.sport === sportFilter; // 🆕 SPORT FILTER
+      const matchesSport = sportFilter === 'all' || expense.sport === sportFilter;
       
       return matchesSearch && matchesYear && matchesMonth && matchesSport;
     });
@@ -41,44 +41,20 @@ export default function Expenses() {
   const { years, months, sports } = useMemo(() => {
     const uniqueYears = ['all', ...new Set(expenses.map(e => e.year?.toString()).filter(Boolean))];
     const uniqueMonths = ['all', ...new Set(expenses.map(e => e.month).filter(Boolean))];
-    const uniqueSports = ['all', ...new Set(expenses.map(e => e.sport).filter(Boolean))]; // 🆕 SPORTS FILTER
+    const uniqueSports = ['all', ...new Set(expenses.map(e => e.sport).filter(Boolean))];
     return { years: uniqueYears, months: uniqueMonths, sports: uniqueSports };
   }, [expenses]);
 
-  // 🆕 UPDATED STATISTICS - Multi-sport aware
+  // STATISTICS - Use stored totals from expenses
   const stats = useMemo(() => {
     const totalExpenses = expenses.reduce((sum, exp) => sum + (exp.total || 0), 0);
     const totalPlayers = expenses.reduce((sum, exp) => sum + (exp.playersCount || 0), 0);
     
-    // 🆕 CALCULATE SPORT-SPECIFIC STATS
-    const sportStats = {
-      badminton: { shuttlecock: 0, indoor: 0 },
-      cricket: { ball: 0, ground: 0 },
-      football: { balls: 0, field: 0 },
-      basketball: { balls: 0, court: 0 },
-      tennis: { balls: 0, court: 0 }
-    };
-
-    expenses.forEach(expense => {
-      const sport = expense.sport || 'badminton';
-      const sportConfig = sportsConfig[sport];
-      
-      if (sportConfig) {
-        sportConfig.defaultFields.forEach(field => {
-          if (!sportStats[sport][field]) {
-            sportStats[sport][field] = 0;
-          }
-          sportStats[sport][field] += expense[field] || 0;
-        });
-      }
-    });
-
-    // 🆕 CALCULATE TOP EXPENSE CATEGORIES
+    // CALCULATE CATEGORY TOTALS
     const totalEquipmentCost = expenses.reduce((sum, exp) => {
       const sportConfig = sportsConfig[exp.sport] || sportsConfig.badminton;
       let equipmentTotal = 0;
       
-      // Sum all equipment-related fields
       Object.entries(sportConfig.expenseFields).forEach(([field, config]) => {
         if (config.category === 'equipment') {
           equipmentTotal += exp[field] || 0;
@@ -92,7 +68,6 @@ export default function Expenses() {
       const sportConfig = sportsConfig[exp.sport] || sportsConfig.badminton;
       let venueTotal = 0;
       
-      // Sum all venue-related fields
       Object.entries(sportConfig.expenseFields).forEach(([field, config]) => {
         if (config.category === 'venue') {
           venueTotal += exp[field] || 0;
@@ -106,11 +81,9 @@ export default function Expenses() {
       totalExpenses, 
       totalPlayers, 
       totalEquipmentCost,
-      totalVenueCost,
-      sportStats 
+      totalVenueCost
     };
   }, [expenses]);
-
 
   if (!currentTeam) {
     return (
@@ -137,7 +110,6 @@ export default function Expenses() {
           <p className="mt-2 text-gray-600">
             Track and manage expenses for {currentTeam.name}
           </p>
-          {/* 🆕 CURRENT SPORT INDICATOR */}
           <div className="flex items-center mt-1">
             <Trophy className="h-4 w-4 text-gray-400 mr-2" />
             <span className="text-sm text-gray-500">
@@ -154,7 +126,7 @@ export default function Expenses() {
         </button>
       </div>
 
-      {/* 🆕 UPDATED STATS OVERVIEW */}
+      {/* STATS OVERVIEW */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 hover:shadow-md transition-shadow duration-200">
           <div className="flex items-center">
@@ -200,14 +172,12 @@ export default function Expenses() {
             <div>
               <p className="text-sm font-medium text-gray-600">Total Records</p>
               <p className="text-2xl font-bold text-gray-900">{expenses.length}</p>
-              {/* Sport breakdown removed */}
             </div>
           </div>
         </div>
       </div>
 
-
-      {/* 🆕 UPDATED SEARCH AND FILTERS - Added sport filter */}
+      {/* SEARCH AND FILTERS */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-2 relative">
@@ -243,7 +213,7 @@ export default function Expenses() {
             ))}
           </select>
 
-          {/* 🆕 SPORT FILTER */}
+          {/* SPORT FILTER */}
           <select
             value={sportFilter}
             onChange={(e) => setSportFilter(e.target.value)}

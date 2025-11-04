@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useData } from '../../contexts/DataContext';
 import Modal from '../common/Modal';
 import { Plus, X } from 'lucide-react';
-import { sportsConfig, expenseCategories } from '../../config/sportsConfig'; // 🆕 ADD IMPORT
+import { sportsConfig, expenseCategories } from '../../config/sportsConfig';
 
 const months = [
   'January', 'February', 'March', 'April', 'May', 'June',
@@ -10,13 +10,12 @@ const months = [
 ];
 
 export default function ExpenseForm({ expense, onClose }) {
-  const { createExpense, updateExpense, currentTeam, currentSport, setCurrentSport } = useData(); // 🆕 ADD SPORT
+  const { createExpense, updateExpense, currentTeam, currentSport, setCurrentSport } = useData();
   const [loading, setLoading] = useState(false);
   const currentYear = new Date().getFullYear();
   
-  const sportConfig = sportsConfig[currentSport]; // 🆕 GET SPORT CONFIG
+  const sportConfig = sportsConfig[currentSport];
   
-  // 🆕 INITIALIZE FORM DATA BASED ON SPORT
   const initializeFormData = () => {
     const baseData = {
       month: months[new Date().getMonth()],
@@ -24,7 +23,7 @@ export default function ExpenseForm({ expense, onClose }) {
       teamId: currentTeam?.id || '',
       playersCount: 0,
       notes: '',
-      sport: currentSport // 🆕 INCLUDE SPORT
+      sport: currentSport
     };
     
     // Add sport-specific fields
@@ -48,9 +47,8 @@ export default function ExpenseForm({ expense, onClose }) {
   };
 
   const [formData, setFormData] = useState(initializeFormData());
-  const [dynamicFields, setDynamicFields] = useState({}); // 🆕 DYNAMIC FIELDS STATE
+  const [dynamicFields, setDynamicFields] = useState({});
 
-  // 🆕 INITIALIZE DYNAMIC FIELDS
   const initializeDynamicFields = () => {
     const initialDynamicFields = {};
     if (sportConfig.dynamicFields) {
@@ -68,14 +66,12 @@ export default function ExpenseForm({ expense, onClose }) {
 
   useEffect(() => {
     if (expense) {
-      // If editing existing expense, use its data
       const expenseData = {
         ...initializeFormData(),
         ...expense
       };
       setFormData(expenseData);
       
-      // Initialize dynamic fields for existing expense
       if (expense.sport && sportsConfig[expense.sport]?.dynamicFields) {
         const sportDynamicFields = {};
         Object.keys(sportsConfig[expense.sport].dynamicFields).forEach(field => {
@@ -102,14 +98,12 @@ export default function ExpenseForm({ expense, onClose }) {
       setFormData(initializeFormData());
       initializeDynamicFields();
     }
-  }, [expense, currentTeam, currentYear, currentSport]); // 🆕 ADD currentSport DEPENDENCY
+  }, [expense, currentTeam, currentYear, currentSport]);
 
-  // 🆕 HANDLE SPORT CHANGE
   const handleSportChange = (sport) => {
     setCurrentSport(sport);
   };
 
-  // 🆕 DYNAMIC FIELD HANDLERS
   const addDynamicFieldItem = (fieldName) => {
     setDynamicFields(prev => ({
       ...prev,
@@ -135,10 +129,27 @@ export default function ExpenseForm({ expense, onClose }) {
     }));
   };
 
+  // FIXED: Calculate total from ALL expense fields correctly
   const calculateTotal = () => {
-    return sportConfig.defaultFields.reduce((total, field) => {
-      return total + (parseFloat(formData[field]) || 0);
-    }, 0);
+    let total = 0;
+    
+    // Calculate total from expense fields only
+    Object.keys(sportConfig.expenseFields).forEach(field => {
+      const fieldConfig = sportConfig.expenseFields[field];
+      
+      // Only include fields marked for calculation
+      if (fieldConfig.calculateTotal !== false) {
+        // For custom-expense type, the field itself holds the amount
+        if (fieldConfig.type === 'custom-expense' || fieldConfig.type === 'number') {
+          total += parseFloat(formData[field]) || 0;
+        }
+      }
+    });
+
+    // Dynamic fields are informational only (like ball types, shuttlecock types)
+    // They don't contribute to the total cost
+    
+    return total;
   };
 
   const calculatePerPerson = () => {
@@ -158,7 +169,7 @@ export default function ExpenseForm({ expense, onClose }) {
     setLoading(true);
 
     try {
-      // 🆕 FORMAT DYNAMIC FIELDS FOR DATABASE
+      // FORMAT DYNAMIC FIELDS FOR DATABASE
       const formattedDynamicFields = {};
       if (sportConfig.dynamicFields) {
         Object.keys(sportConfig.dynamicFields).forEach(field => {
@@ -185,8 +196,8 @@ export default function ExpenseForm({ expense, onClose }) {
         teamId: currentTeam.id,
         total: calculateTotal(),
         perPerson: calculatePerPerson(),
-        sport: currentSport, // 🆕 INCLUDE SPORT
-        ...formattedDynamicFields // 🆕 INCLUDE DYNAMIC FIELDS
+        sport: currentSport,
+        ...formattedDynamicFields
       };
 
       if (expense) {
@@ -219,7 +230,6 @@ export default function ExpenseForm({ expense, onClose }) {
     }));
   };
 
-  // 🆕 RENDER DYNAMIC FIELDS
   const renderDynamicFields = () => {
     if (!sportConfig.dynamicFields) return null;
 
@@ -329,7 +339,7 @@ export default function ExpenseForm({ expense, onClose }) {
     >
       <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
         
-        {/* 🆕 SPORT SELECTION */}
+        {/* SPORT SELECTION */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Sport *
@@ -390,10 +400,53 @@ export default function ExpenseForm({ expense, onClose }) {
           </div>
         </div>
 
-        {/* 🆕 SPORT-SPECIFIC EXPENSE FIELDS */}
+        {/* SPORT-SPECIFIC EXPENSE FIELDS */}
         <div className="grid grid-cols-2 gap-4">
           {sportConfig.defaultFields.map(field => {
             const fieldConfig = sportConfig.expenseFields[field];
+            
+            // Handle custom expense type differently
+            if (fieldConfig.type === 'custom-expense') {
+              return (
+                <div key={field} className="col-span-2 grid grid-cols-2 gap-4">
+                  <div>
+                    <label htmlFor={`${field}-name`} className="block text-sm font-medium text-gray-700">
+                      {fieldConfig.fields.name.label}
+                    </label>
+                    <input
+                      type="text"
+                      id={`${field}-name`}
+                      name={`${field}-name`}
+                      placeholder={fieldConfig.fields.name.placeholder}
+                      value={formData[`${field}-name`] || ''}
+                      onChange={(e) => setFormData(prev => ({
+                        ...prev,
+                        [`${field}-name`]: e.target.value
+                      }))}
+                      className="input-field mt-1"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor={field} className="block text-sm font-medium text-gray-700">
+                      {fieldConfig.fields.amount.label} ($)
+                    </label>
+                    <input
+                      type="number"
+                      id={field}
+                      name={field}
+                      step="0.01"
+                      min="0"
+                      placeholder={fieldConfig.fields.amount.placeholder}
+                      value={formData[field]}
+                      onChange={handleChange}
+                      className="input-field mt-1"
+                    />
+                  </div>
+                </div>
+              );
+            }
+
+            // Regular expense field
             return (
               <div key={field}>
                 <label htmlFor={field} className="block text-sm font-medium text-gray-700">
@@ -414,7 +467,7 @@ export default function ExpenseForm({ expense, onClose }) {
           })}
         </div>
 
-        {/* 🆕 DYNAMIC FIELDS */}
+        {/* DYNAMIC FIELDS */}
         {renderDynamicFields()}
 
         <div>

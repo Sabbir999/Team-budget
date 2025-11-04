@@ -6,6 +6,7 @@ import {
   DollarSign, 
   CreditCard, 
   Activity,
+  Settings,
   PanelLeft,
   PanelLeftClose
 } from 'lucide-react';
@@ -17,6 +18,7 @@ const navigation = [
   { name: 'Players', href: '/players', icon: Users },
   { name: 'Expenses', href: '/expenses', icon: DollarSign },
   { name: 'Payments', href: '/payments', icon: CreditCard },
+  { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
 export default function Sidebar({ isOpen, onToggle }) {
