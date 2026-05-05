@@ -1,51 +1,67 @@
-# 🏆 TeamBudget
+# LifeStack
 
-A comprehensive web application for managing **sports team expenses**, **player payments**, and **financial tracking**. Built with modern technologies to help team organizers efficiently manage their team finances.
-
----
-
-## 🏸 Overview
-
-**TeamBudget** simplifies the financial management of sports teams by providing:
-
-* 💼 **Multi-team support** for different sports and seasons
-* 👥 **Player management** with contact information and payment tracking
-* 💰 **Expense tracking** for court rentals, equipment, and other costs
-* 🧾 **Payment recording** with multiple payment methods and status tracking
-* 🔄 **Real-time synchronization** across all devices
-* 📊 **Financial dashboards** with visual insights
+LifeStack is a personal management web application for organizing different parts of everyday life in one place. It helps users manage sports team finances, people profiles, trip expenses, shared payments, and financial tracking.
 
 ---
 
-## ✨ Features
+## Overview
 
-### 🎯 Core Features
+LifeStack brings multiple life-management tools into one app by providing:
 
-* **Team Management:** Create and manage multiple teams for different sports
-* **Player Roster:** Maintain player profiles with contact information
-* **Expense Tracking:** Record monthly expenses with categorization
-* **Payment Management:** Track player payments with status monitoring
-* **Real-time Dashboard:** View financial overview and key metrics
-* **Multi-currency Support:** USD, CAD, EUR, GBP, and more
-
-### 📊 Financial Features
-
-* Automatic per-player cost calculation
-* Payment status tracking (Paid, Pending, Partial)
-* Outstanding balance monitoring
-* Collection rate analytics
-* Monthly financial summaries
+* Sports team expense management
+* Player and people profile management
+* Trip expense splitting
+* Real payment tracking between members
+* Financial dashboards with balance insights
+* Real-time synchronization across devices
+* User-specific data storage and isolation
 
 ---
 
-## 🔐 Security & Data
+## Features
+
+### Core Features
+
+* Sports module: manage teams, players, expenses, and payments
+* People module: maintain reusable people profiles with contact and payment information
+* Trips module: create trips, add members, record expenses, and track reimbursements
+* Dashboard overview: view financial summaries and key metrics
+* Real-time data sync using Firebase
+* User-specific data isolation
+
+### Sports Financial Features
+
+* Create and manage multiple teams
+* Maintain player rosters with contact information
+* Record team expenses by month and category
+* Track player payments and outstanding balances
+* Support payment statuses such as Paid, Pending, and Partial
+* Calculate per-player cost automatically
+* View monthly financial summaries
+* Monitor collection rates and outstanding balances
+
+### Trip Expense Features
+
+* Create and manage group trips
+* Add trip members from the People module
+* Record trip expenses with payer, amount, category, and split members
+* Support default and custom trip categories
+* Track real payments between members
+* Calculate current balances after reimbursements
+* Show who owes money and who should receive money back
+* Generate suggested settle-up payments
+* View member-level trip summaries, including expenses paid, payments received, payments made, and net balance
+
+---
+
+## Security and Data
 
 * Firebase Authentication with email/password
-* Real-time database with user-specific data isolation
+* Firebase Realtime Database
+* User-specific data isolation
 * Secure environment variable configuration
-* Data persistence and backup
-
----
+* Real-time data synchronization
+* Persistent data storage
 
 ## 🛠 Technology Stack
 
@@ -70,7 +86,7 @@ A comprehensive web application for managing **sports team expenses**, **player 
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -107,11 +123,11 @@ npm run dev
 ```
 
 Open your browser and navigate to:
-👉 **[http://localhost:3000](http://localhost:3000)**
+ **[http://localhost:3000](http://localhost:3000)**
 
 ---
 
-## 🔥 Firebase Setup
+## Firebase Setup
 
 ### 1. Create Firebase Project
 
@@ -152,54 +168,9 @@ Open your browser and navigate to:
 
 ---
 
-## 📁 Project Structure
 
-```
-teambudget/
-├── public/                 # Static assets
-├── src/
-│   ├── components/         # React components
-│   │   ├── common/
-│   │   ├── dashboard/
-│   │   ├── expenses/
-│   │   ├── players/
-│   │   ├── payments/
-│   │   └── teams/
-│   ├── contexts/
-│   │   ├── AuthContext.jsx
-│   │   └── DataContext.jsx
-│   ├── hooks/
-│   │   ├── useAuth.js
-│   │   ├── useData.js
-│   │   └── useFirebase.js
-│   ├── pages/
-│   │   ├── Dashboard.jsx
-│   │   ├── Teams.jsx
-│   │   ├── Players.jsx
-│   │   ├── Expenses.jsx
-│   │   ├── Payments.jsx
-│   │   ├── Login.jsx
-│   │   ├── Register.jsx
-│   │   └── Settings.jsx
-│   ├── services/
-│   │   ├── firebase.js
-│   │   └── database.js
-│   ├── utils/
-│   │   ├── constants.js
-│   │   ├── helpers.js
-│   │   └── validators.js
-│   └── styles/
-│       └── index.css
-├── .env
-├── package.json
-├── tailwind.config.js
-├── vite.config.js
-└── README.md
-```
 
----
-
-## 🎮 Usage Guide
+## Usage Guide
 
 ### Getting Started
 
@@ -219,7 +190,7 @@ Zelle • Venmo • PayPal • Cash • Bank Transfer • Others
 
 ---
 
-## 📊 Dashboard Features
+## Dashboard Features
 
 ### Financial Overview
 
@@ -238,7 +209,7 @@ Zelle • Venmo • PayPal • Cash • Bank Transfer • Others
 
 ---
 
-## 🔧 Available Scripts
+## Available Scripts
 
 ```bash
 # Start development server
@@ -256,7 +227,7 @@ npm start
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -278,7 +249,7 @@ npm start
 
 ---
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Common Issues
 
@@ -307,7 +278,7 @@ npm start
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 ### Steps
 
@@ -337,13 +308,13 @@ npm start
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the **MIT License** – see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 * **Firebase** for backend and real-time database
 * **React Team** for the framework
@@ -353,7 +324,7 @@ This project is licensed under the **MIT License** – see the [LICENSE](LICENSE
 
 ---
 
-## 📞 Support
+## Support
 
 If you encounter issues:
 
@@ -364,7 +335,7 @@ If you encounter issues:
 
 ---
 
-## 🚀 Deployment
+## Deployment
 
 ### Build for Production
 
@@ -380,4 +351,4 @@ The `dist/` folder will contain production-ready files that can be deployed to a
 
 ---
 
-> **TeamBudget** – Making sports team finance management simple and efficient! 🏆
+
