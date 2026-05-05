@@ -18,9 +18,11 @@ import SettleUpTab from "./balances/SettleUpTab";
 
 import CategoryBreakdownTab from "./categories/CategoryBreakdownTab";
 
+import PaymentsTab from "./payments/PaymentsTab";
+import RecordPaymentModal from "./payments/RecordPaymentModal";
+
 import MembersTab from "./members/MembersTab";
 import TripMemberDetail from "./members/TripMemberDetail";
-import PartialPaymentModal from "./members/PartialPaymentModal";
 
 export default function TripDetail({ trip, onBack, onEditTrip }) {
   const { currentUser } = useAuth();
@@ -28,17 +30,14 @@ export default function TripDetail({ trip, onBack, onEditTrip }) {
   const {
     expenses,
     invalidSplitExpenses,
+    tripPayments,
     members,
-    settlements,
-    memberSummary,
+    memberBalances,
+    suggestedPayments,
     categoryTotals,
     stats,
-    averageActualShare,
-    totalCollected,
-    paymentUnsettledAmount,
-    peopleStillOweCount,
-    updateMemberStatus,
-    savePartialPayment,
+    recordPayment,
+    deletePayment,
     removeMemberFromTrip,
   } = useTripDetail({ trip, currentUser });
 
@@ -48,11 +47,8 @@ export default function TripDetail({ trip, onBack, onEditTrip }) {
   const [categoryManagerOpen, setCategoryManagerOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [memberActionError, setMemberActionError] = useState("");
-
-  const [partialPaymentMember, setPartialPaymentMember] = useState(null);
-  const [partialPaymentAmount, setPartialPaymentAmount] = useState("");
-  const [partialPaymentNote, setPartialPaymentNote] = useState("");
-  const [partialPaymentError, setPartialPaymentError] = useState("");
+  const [recordPaymentModalOpen, setRecordPaymentModalOpen] = useState(false);
+  const [recordPaymentInitial, setRecordPaymentInitial] = useState(null);
 
   const openEditExpense = (expense) => {
     setEditingExpense(expense);
@@ -64,37 +60,28 @@ export default function TripDetail({ trip, onBack, onEditTrip }) {
     setExpenseModalOpen(false);
   };
 
-  const closePartialPaymentModal = () => {
-    setPartialPaymentMember(null);
-    setPartialPaymentAmount("");
-    setPartialPaymentNote("");
-    setPartialPaymentError("");
-  };
-
-  const handleSavePartialPayment = async () => {
-    const result = await savePartialPayment(
-      partialPaymentMember,
-      partialPaymentAmount,
-      partialPaymentNote
+  const openRecordPaymentModal = (payment = null) => {
+    setRecordPaymentInitial(
+      payment
+        ? {
+            fromPersonId: payment.fromPersonId,
+            toPersonId: payment.toPersonId,
+            amount: payment.amount,
+            note:
+              payment.note ||
+              `${payment.fromName || "Member"} payment to ${
+                payment.toName || "member"
+              }`,
+          }
+        : null
     );
 
-    if (!result.ok) {
-      setPartialPaymentError(result.message);
-      return;
-    }
-
-    closePartialPaymentModal();
+    setRecordPaymentModalOpen(true);
   };
 
-  const handleUpdateMemberStatus = async (member, status) => {
-    const result = await updateMemberStatus(member, status);
-
-    if (!result.ok) {
-      setMemberActionError(result.message);
-      return;
-    }
-
-    setMemberActionError("");
+  const closeRecordPaymentModal = () => {
+    setRecordPaymentInitial(null);
+    setRecordPaymentModalOpen(false);
   };
 
   const handleRemoveMember = async (member) => {
@@ -110,8 +97,8 @@ export default function TripDetail({ trip, onBack, onEditTrip }) {
   };
 
   if (selectedMember) {
-    const latestSummary =
-      memberSummary.find(
+    const latestMember =
+      memberBalances.find(
         (member) => member.personId === selectedMember.personId
       ) || selectedMember;
 
@@ -124,31 +111,15 @@ export default function TripDetail({ trip, onBack, onEditTrip }) {
         )}
 
         <TripMemberDetail
-          member={latestSummary}
+          member={latestMember}
           expenses={expenses}
+          payments={tripPayments}
+          members={members}
           onBack={() => {
             setMemberActionError("");
             setSelectedMember(null);
           }}
-          onUpdateStatus={handleUpdateMemberStatus}
           onRemoveMember={handleRemoveMember}
-          onOpenPartialPayment={(member) => {
-            setPartialPaymentMember(member);
-            setPartialPaymentAmount("");
-            setPartialPaymentNote("");
-            setPartialPaymentError("");
-          }}
-        />
-
-        <PartialPaymentModal
-          member={partialPaymentMember}
-          amount={partialPaymentAmount}
-          note={partialPaymentNote}
-          error={partialPaymentError}
-          onAmountChange={setPartialPaymentAmount}
-          onNoteChange={setPartialPaymentNote}
-          onCancel={closePartialPaymentModal}
-          onSave={handleSavePartialPayment}
         />
       </>
     );
@@ -163,15 +134,7 @@ export default function TripDetail({ trip, onBack, onEditTrip }) {
         onAddExpense={() => setExpenseModalOpen(true)}
       />
 
-      <TripStatsCards
-        stats={stats}
-        expenses={expenses}
-        members={members}
-        averageActualShare={averageActualShare}
-        totalCollected={totalCollected}
-        paymentUnsettledAmount={paymentUnsettledAmount}
-        peopleStillOweCount={peopleStillOweCount}
-      />
+      <TripStatsCards stats={stats} expenses={expenses} members={members} />
 
       {memberActionError && (
         <div className="rounded-xl bg-red-50 p-3 text-sm font-semibold text-red-600">
@@ -185,7 +148,10 @@ export default function TripDetail({ trip, onBack, onEditTrip }) {
         onEditTrip={onEditTrip}
         onSelectMember={(member) => {
           setMemberActionError("");
-          setSelectedMember(member);
+          const latestMember =
+            memberBalances.find((item) => item.personId === member.personId) ||
+            member;
+          setSelectedMember(latestMember);
         }}
         onRemoveMember={handleRemoveMember}
       />
@@ -203,18 +169,32 @@ export default function TripDetail({ trip, onBack, onEditTrip }) {
       )}
 
       {activeTab === "balances" && (
-        <BalancesTab memberSummary={memberSummary} />
+        <BalancesTab memberBalances={memberBalances} />
+      )}
+
+      {activeTab === "payments" && (
+        <PaymentsTab
+          payments={tripPayments}
+          members={members}
+          onAddPayment={() => openRecordPaymentModal()}
+          onDeletePayment={deletePayment}
+        />
       )}
 
       {activeTab === "categories" && (
         <CategoryBreakdownTab trip={trip} categoryTotals={categoryTotals} />
       )}
 
-      {activeTab === "settle" && <SettleUpTab settlements={settlements} />}
+      {activeTab === "settle" && (
+        <SettleUpTab
+          suggestedPayments={suggestedPayments}
+          onRecordPayment={openRecordPaymentModal}
+        />
+      )}
 
       {activeTab === "members" && (
         <MembersTab
-          memberSummary={memberSummary}
+          memberBalances={memberBalances}
           onOpenMember={setSelectedMember}
         />
       )}
@@ -236,16 +216,14 @@ export default function TripDetail({ trip, onBack, onEditTrip }) {
         />
       )}
 
-      <PartialPaymentModal
-        member={partialPaymentMember}
-        amount={partialPaymentAmount}
-        note={partialPaymentNote}
-        error={partialPaymentError}
-        onAmountChange={setPartialPaymentAmount}
-        onNoteChange={setPartialPaymentNote}
-        onCancel={closePartialPaymentModal}
-        onSave={handleSavePartialPayment}
-      />
+      {recordPaymentModalOpen && (
+        <RecordPaymentModal
+          members={members}
+          initialPayment={recordPaymentInitial}
+          onClose={closeRecordPaymentModal}
+          onSave={recordPayment}
+        />
+      )}
     </div>
   );
 }

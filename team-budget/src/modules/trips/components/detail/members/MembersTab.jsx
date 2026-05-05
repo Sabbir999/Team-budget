@@ -1,33 +1,29 @@
 import React from "react";
 
 import PersonAvatar from "../../../../people/components/PersonAvatar";
-import {
-  formatMoney,
-  getMemberPaymentSummary,
-} from "../../../utils/tripMoney";
+import { formatMoney } from "../../../utils/tripMoney";
 
-export default function MembersTab({ memberSummary, onOpenMember }) {
+export default function MembersTab({ memberBalances = [], onOpenMember }) {
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
       <h3 className="mb-5 font-bold text-gray-900">
-        Members · {memberSummary.length}
+        Members · {memberBalances.length}
       </h3>
 
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {memberSummary.map((member) => {
-          const payment = getMemberPaymentSummary(member);
+        {memberBalances.map((member) => {
+          const isPositive = member.netBalance > 0;
+          const isNegative = member.netBalance < 0;
 
           return (
             <div
               key={member.personId || member.id}
               className={`rounded-2xl border-t-4 bg-gray-50 p-4 ${
-                payment.getsBack > 0
+                isPositive
                   ? "border-green-400"
-                  : payment.stillOwes === 0
-                  ? "border-green-400"
-                  : member.paymentStatus === "partial"
-                  ? "border-amber-400"
-                  : "border-red-400"
+                  : isNegative
+                  ? "border-red-400"
+                  : "border-gray-300"
               }`}
             >
               <div className="mb-4 flex items-center gap-3">
@@ -45,43 +41,45 @@ export default function MembersTab({ memberSummary, onOpenMember }) {
                 <div className="rounded-xl bg-white p-3">
                   <p className="text-xs text-gray-500">Paid for group</p>
                   <p className="font-bold text-blue-600">
-                    {formatMoney(payment.paidForExpenses)}
+                    {formatMoney(member.paidForGroup)}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-white p-3">
                   <p className="text-xs text-gray-500">
-                    {payment.getsBack > 0 ? "Gets back" : "Still owes"}
+                    {isPositive ? "Gets back" : isNegative ? "Owes" : "Balance"}
                   </p>
 
                   <p
                     className={
-                      payment.getsBack > 0
+                      isPositive
                         ? "font-bold text-green-600"
-                        : payment.stillOwes > 0
+                        : isNegative
                         ? "font-bold text-red-600"
                         : "font-bold text-gray-900"
                     }
                   >
-                    {payment.getsBack > 0
-                      ? formatMoney(payment.getsBack)
-                      : formatMoney(payment.stillOwes)}
+                    {isPositive
+                      ? formatMoney(member.netBalance)
+                      : isNegative
+                      ? formatMoney(Math.abs(member.netBalance))
+                      : "Settled"}
                   </p>
                 </div>
               </div>
 
               <div className="mt-2 grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-white p-3">
-                  <p className="text-xs text-gray-500">Fair share</p>
+                  <p className="text-xs text-gray-500">Share</p>
                   <p className="font-bold text-gray-900">
-                    {formatMoney(payment.fairShare)}
+                    {formatMoney(member.shareOfExpenses)}
                   </p>
                 </div>
 
                 <div className="rounded-xl bg-white p-3">
-                  <p className="text-xs text-gray-500">Paid toward share</p>
+                  <p className="text-xs text-gray-500">Received</p>
                   <p className="font-bold text-green-600">
-                    {formatMoney(payment.paidTowardShare)}
+                    {formatMoney(member.receivedFromOthers)}
                   </p>
                 </div>
               </div>

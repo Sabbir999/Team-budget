@@ -3,6 +3,7 @@ import React from "react";
 const tabs = [
   ["expenses", "Expenses"],
   ["balances", "Balances"],
+  ["payments", "Payments"],
   ["settle", "Settle up"],
   ["categories", "Category breakdown"],
   ["members", "Members"],

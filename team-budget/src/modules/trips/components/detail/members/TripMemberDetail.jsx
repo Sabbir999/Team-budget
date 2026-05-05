@@ -2,10 +2,8 @@ import React from "react";
 import { Mail, Phone, CircleDollarSign } from "lucide-react";
 
 import PersonAvatar from "../../../../people/components/PersonAvatar";
-import {
-  formatMoney,
-  getMemberPaymentSummary,
-} from "../../../utils/tripMoney";
+import { formatMoney } from "../../../utils/tripMoney";
+import { getMemberName } from "../../../utils/tripBalances";
 
 function getExpenseShare(expense, personId) {
   if (!expense.splitBetween?.includes(personId)) {
@@ -22,10 +20,10 @@ function getExpenseShare(expense, personId) {
 export default function TripMemberDetail({
   member,
   expenses,
+  payments,
+  members,
   onBack,
-  onUpdateStatus,
   onRemoveMember,
-  onOpenPartialPayment,
 }) {
   const memberExpenses = expenses.filter((expense) => {
     const isInSplit = expense.splitBetween?.includes(member.personId);
@@ -34,13 +32,16 @@ export default function TripMemberDetail({
     return isInSplit || isPayer;
   });
 
-  const payment = getMemberPaymentSummary(member);
+  const paymentsMade = payments.filter(
+    (payment) => payment.fromPersonId === member.personId
+  );
 
-  const paidForExpenses = Number(payment.paidForExpenses) || 0;
-  const fairShare = Number(payment.fairShare) || 0;
-  const paidTowardShare = Number(payment.paidTowardShare) || 0;
-  const stillOwes = Number(payment.stillOwes) || 0;
-  const getsBack = Number(payment.getsBack) || 0;
+  const paymentsReceived = payments.filter(
+    (payment) => payment.toPersonId === member.personId
+  );
+
+  const isPositive = member.netBalance > 0;
+  const isNegative = member.netBalance < 0;
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -73,15 +74,19 @@ export default function TripMemberDetail({
           </p>
 
           <span
-            className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold capitalize ${
-              member.paymentStatus === "paid"
+            className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ${
+              isPositive
                 ? "bg-green-100 text-green-700"
-                : member.paymentStatus === "partial"
-                ? "bg-amber-100 text-amber-700"
-                : "bg-red-100 text-red-700"
+                : isNegative
+                ? "bg-red-100 text-red-700"
+                : "bg-gray-100 text-gray-700"
             }`}
           >
-            {member.paymentStatus || "unpaid"}
+            {isPositive
+              ? `Gets back ${formatMoney(member.netBalance)}`
+              : isNegative
+              ? `Owes ${formatMoney(Math.abs(member.netBalance))}`
+              : "Settled"}
           </span>
         </div>
       </div>
@@ -115,41 +120,49 @@ export default function TripMemberDetail({
 
           <div className="grid grid-cols-2 gap-2">
             <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Fair share</p>
-              <p className="font-bold">{formatMoney(fairShare)}</p>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Paid toward share</p>
-              <p className="font-bold text-green-600">
-                {formatMoney(paidTowardShare)}
-              </p>
-            </div>
-
-            <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">Paid for expenses</p>
+              <p className="text-xs text-gray-500">Paid for group</p>
               <p className="font-bold text-blue-600">
-                {formatMoney(paidForExpenses)}
+                {formatMoney(member.paidForGroup)}
               </p>
             </div>
 
             <div className="rounded-xl bg-gray-50 p-3">
-              <p className="text-xs text-gray-500">
-                {getsBack > 0 ? "Gets back from group" : "Still owes"}
+              <p className="text-xs text-gray-500">Share of expenses</p>
+              <p className="font-bold">
+                {formatMoney(member.shareOfExpenses)}
               </p>
+            </div>
 
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">Received</p>
+              <p className="font-bold text-green-600">
+                {formatMoney(member.receivedFromOthers)}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-gray-50 p-3">
+              <p className="text-xs text-gray-500">Paid to others</p>
+              <p className="font-bold text-purple-600">
+                {formatMoney(member.paidToOthers)}
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-gray-50 p-3 md:col-span-2">
+              <p className="text-xs text-gray-500">Net balance</p>
               <p
                 className={`font-bold ${
-                  getsBack > 0
+                  isPositive
                     ? "text-green-600"
-                    : stillOwes > 0
+                    : isNegative
                     ? "text-red-600"
                     : "text-gray-900"
                 }`}
               >
-                {getsBack > 0
-                  ? formatMoney(getsBack)
-                  : formatMoney(stillOwes)}
+                {isPositive
+                  ? `Gets back ${formatMoney(member.netBalance)}`
+                  : isNegative
+                  ? `Owes ${formatMoney(Math.abs(member.netBalance))}`
+                  : "Settled"}
               </p>
             </div>
           </div>
@@ -157,69 +170,60 @@ export default function TripMemberDetail({
       </div>
 
       <div className="mt-6 border-t border-gray-200 pt-5">
-        <h3 className="mb-3 font-bold text-gray-900">Trip payment status</h3>
+        <h3 className="mb-3 font-bold text-gray-900">Payments received</h3>
 
-        <p className="mb-3 text-sm text-gray-500">
-          This tracks whether this member has paid their own share.
-        </p>
+        <div className="divide-y divide-gray-200 rounded-xl border border-gray-200">
+          {paymentsReceived.map((payment) => (
+            <div key={payment.id} className="flex justify-between gap-3 p-3">
+              <div>
+                <p className="font-bold text-gray-900">
+                  {getMemberName(members, payment.fromPersonId)} → {member.name}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {payment.note || "No note"}
+                </p>
+              </div>
 
-        <div className="flex flex-wrap gap-2">
-          {["unpaid", "partial", "paid"].map((status) => (
-            <button
-              key={status}
-              type="button"
-              onClick={() => {
-                if (status === "partial") {
-                  onOpenPartialPayment(member);
-                  return;
-                }
-
-                onUpdateStatus(member, status);
-              }}
-              className={`rounded-xl border px-4 py-2 font-semibold capitalize ${
-                member.paymentStatus === status
-                  ? "border-blue-300 bg-blue-50 text-blue-700"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {status}
-            </button>
+              <p className="font-bold text-green-600">
+                {formatMoney(payment.amount)}
+              </p>
+            </div>
           ))}
+
+          {paymentsReceived.length === 0 && (
+            <div className="p-3 text-sm text-gray-500">
+              No payments received.
+            </div>
+          )}
         </div>
       </div>
 
-      {member.partialPayments?.length > 0 && (
-        <div className="mt-6 border-t border-gray-200 pt-5">
-          <h3 className="mb-3 font-bold text-gray-900">Payment history</h3>
+      <div className="mt-6 border-t border-gray-200 pt-5">
+        <h3 className="mb-3 font-bold text-gray-900">Payments made</h3>
 
-          <div className="divide-y divide-gray-200 rounded-xl border border-gray-200">
-            {member.partialPayments.map((paymentRecord) => (
-              <div
-                key={
-                  paymentRecord.id ||
-                  `${paymentRecord.amount}-${paymentRecord.createdAt}`
-                }
-                className="flex items-center justify-between gap-3 p-3"
-              >
-                <div>
-                  <p className="font-bold text-gray-900">
-                    {formatMoney(paymentRecord.amount)}
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    {paymentRecord.note || "No note"}
-                  </p>
-                </div>
-
-                <p className="text-xs text-gray-400">
-                  {paymentRecord.createdAt
-                    ? new Date(paymentRecord.createdAt).toLocaleDateString()
-                    : ""}
+        <div className="divide-y divide-gray-200 rounded-xl border border-gray-200">
+          {paymentsMade.map((payment) => (
+            <div key={payment.id} className="flex justify-between gap-3 p-3">
+              <div>
+                <p className="font-bold text-gray-900">
+                  {member.name} → {getMemberName(members, payment.toPersonId)}
+                </p>
+                <p className="text-sm text-gray-500">
+                  {payment.note || "No note"}
                 </p>
               </div>
-            ))}
-          </div>
+
+              <p className="font-bold text-purple-600">
+                {formatMoney(payment.amount)}
+              </p>
+            </div>
+          ))}
+
+          {paymentsMade.length === 0 && (
+            <div className="p-3 text-sm text-gray-500">No payments made.</div>
+          )}
         </div>
-      )}
+      </div>
 
       <div className="mt-6 border-t border-gray-200 pt-5">
         <h3 className="mb-3 font-bold text-gray-900">Expense breakdown</h3>
@@ -277,7 +281,7 @@ export default function TripMemberDetail({
 
                   {isPayer && (
                     <p className="text-xs text-green-600">
-                      Gets back {formatMoney(payerGetsBack)}
+                      Others owe {formatMoney(payerGetsBack)}
                     </p>
                   )}
                 </div>

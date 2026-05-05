@@ -1,30 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { tripsAPI } from "../api/tripsAPI";
+import { tripPaymentsAPI } from "../api/tripPaymentsAPI";
 import { peopleAPI } from "../../people/api/peopleAPI";
 import { snapshotToArray } from "../../people/utils/peopleHelpers";
 
 import {
-  computeBalances,
-  computeSettlements,
-  computeMemberSummary,
   computeCategoryTotals,
   getTripStats,
 } from "../utils/settlementCalculator";
-
 import { hydrateTripMembers } from "../utils/tripPeople";
 import {
-  getManualPaidAmount,
-  getPaidTowardShare,
-  getRemainingPaymentCapacity,
-  getStillOwes,
-  getPaymentStatusFromAmount,
-} from "../utils/tripMoney";
-
-const roundMoney = (value) => Math.round((Number(value) || 0) * 100) / 100;
+  computeSuggestedPayments,
+  computeTripLedger,
+} from "../utils/tripBalances";
 
 export default function useTripDetail({ trip, currentUser }) {
   const [expenses, setExpenses] = useState([]);
+  const [tripPayments, setTripPayments] = useState([]);
   const [people, setPeople] = useState([]);
 
   useEffect(() => {
@@ -68,6 +61,34 @@ export default function useTripDetail({ trip, currentUser }) {
     return () => unsubscribe();
   }, [currentUser?.uid, trip?.id]);
 
+  useEffect(() => {
+    if (!currentUser?.uid || !trip?.id) {
+      setTripPayments([]);
+      return undefined;
+    }
+
+    const unsubscribe = tripPaymentsAPI.getTripPayments(
+      currentUser.uid,
+      trip.id,
+      (snapshot) => {
+        const data = snapshot.val();
+
+        const list = data
+          ? Object.keys(data).map((key) => ({
+              ...data[key],
+              id: data[key].id || key,
+            }))
+          : [];
+
+        setTripPayments(
+          list.sort((a, b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))
+        );
+      }
+    );
+
+    return () => unsubscribe();
+  }, [currentUser?.uid, trip?.id]);
+
   const validSplitExpenses = useMemo(
     () =>
       expenses.filter(
@@ -90,19 +111,16 @@ export default function useTripDetail({ trip, currentUser }) {
     [trip?.members, people]
   );
 
-  const balances = useMemo(
-    () => computeBalances(validSplitExpenses, members),
-    [validSplitExpenses, members]
+  const ledger = useMemo(
+    () => computeTripLedger(validSplitExpenses, tripPayments, members),
+    [validSplitExpenses, tripPayments, members]
   );
 
-  const settlements = useMemo(
-    () => computeSettlements(balances, members),
-    [balances, members]
-  );
+  const memberBalances = ledger.memberBalances;
 
-  const memberSummary = useMemo(
-    () => computeMemberSummary(validSplitExpenses, members),
-    [validSplitExpenses, members]
+  const suggestedPayments = useMemo(
+    () => computeSuggestedPayments(memberBalances),
+    [memberBalances]
   );
 
   const categoryTotals = useMemo(
@@ -110,160 +128,60 @@ export default function useTripDetail({ trip, currentUser }) {
     [validSplitExpenses]
   );
 
-  const stats = useMemo(
+  const legacyStats = useMemo(
     () => getTripStats(validSplitExpenses, members),
     [validSplitExpenses, members]
   );
 
-  const averageActualShare = useMemo(() => {
-    if (memberSummary.length === 0) {
-      return 0;
-    }
+  const stats = {
+    ...legacyStats,
+    totalSpent: ledger.stats.totalSpent,
+    averageShare: ledger.stats.averageShare,
+    totalReimbursed: ledger.stats.totalReimbursed,
+    openBalance: ledger.stats.openBalance,
+    peopleStillOweCount: ledger.stats.peopleStillOweCount,
+  };
 
-    const totalShare = memberSummary.reduce(
-      (sum, member) => sum + (Number(member.share) || 0),
-      0
-    );
-
-    return roundMoney(totalShare / memberSummary.length);
-  }, [memberSummary]);
-
-  const totalCollected = useMemo(
-    () =>
-      roundMoney(
-        memberSummary.reduce(
-          (sum, member) => sum + getPaidTowardShare(member),
-          0
-        )
-      ),
-    [memberSummary]
-  );
-
-  const paymentUnsettledAmount = useMemo(
-    () =>
-      roundMoney(
-        memberSummary.reduce((sum, member) => sum + getStillOwes(member), 0)
-      ),
-    [memberSummary]
-  );
-
-  const peopleStillOweCount = useMemo(
-    () => memberSummary.filter((member) => getStillOwes(member) > 0).length,
-    [memberSummary]
-  );
-
-  const updateExpenseStatus = async (expense, status) => {
+  const recordPayment = async ({
+    fromPersonId,
+    toPersonId,
+    amount,
+    note = "",
+  }) => {
     if (!currentUser?.uid) {
       return { ok: false, message: "You must be logged in." };
     }
 
-    await tripsAPI.updateTripExpense(currentUser.uid, trip.id, expense.id, {
-      status,
+    if (!fromPersonId || !toPersonId) {
+      return { ok: false, message: "Select both people." };
+    }
+
+    if (fromPersonId === toPersonId) {
+      return { ok: false, message: "From and To cannot be the same person." };
+    }
+
+    if ((Number(amount) || 0) <= 0) {
+      return { ok: false, message: "Amount must be greater than 0." };
+    }
+
+    await tripPaymentsAPI.createTripPayment(currentUser.uid, trip.id, {
+      fromPersonId,
+      toPersonId,
+      amount: Number(amount) || 0,
+      note,
     });
 
     return { ok: true };
   };
 
-  const updateMemberStatus = async (member, status) => {
-    if (!currentUser?.uid || !member?.personId) {
-      return { ok: false, message: "Missing member." };
+  const deletePayment = async (paymentId) => {
+    if (!currentUser?.uid) {
+      return { ok: false, message: "You must be logged in." };
     }
 
-    if (status === "paid") {
-      const currentManualPaidAmount = getManualPaidAmount(member);
-      const remainingAmount = getRemainingPaymentCapacity(member);
+    await tripPaymentsAPI.deleteTripPayment(currentUser.uid, trip.id, paymentId);
 
-      const finalPaidAmount = roundMoney(
-        currentManualPaidAmount + remainingAmount
-      );
-
-      await tripsAPI.updateTripMemberStatus(
-        currentUser.uid,
-        trip.id,
-        member.personId,
-        "paid",
-        {
-          paidAmount: finalPaidAmount,
-          finalPaymentAmount: remainingAmount,
-          note: "Marked paid",
-        }
-      );
-
-      return { ok: true, status: "paid" };
-    }
-
-    if (status === "unpaid") {
-      await tripsAPI.updateTripMemberStatus(
-        currentUser.uid,
-        trip.id,
-        member.personId,
-        "unpaid"
-      );
-
-      return { ok: true, status: "unpaid" };
-    }
-
-    return { ok: false, message: "Use the partial payment form." };
-  };
-
-  const savePartialPayment = async (member, amount, note = "") => {
-    if (!currentUser?.uid || !member?.personId) {
-      return { ok: false, message: "Missing member." };
-    }
-
-    const paymentAmount = roundMoney(amount);
-
-    if (paymentAmount <= 0) {
-      return { ok: false, message: "Enter an amount greater than 0." };
-    }
-
-    const remaining = getRemainingPaymentCapacity(member);
-
-    if (paymentAmount > remaining) {
-      return {
-        ok: false,
-        message: "Amount is more than the remaining balance.",
-      };
-    }
-
-    const previousManualPaidAmount = getManualPaidAmount(member);
-    const newManualPaidAmount = roundMoney(
-      previousManualPaidAmount + paymentAmount
-    );
-
-    const nextStatus = getPaymentStatusFromAmount(member, newManualPaidAmount);
-
-    if (nextStatus === "paid") {
-      await tripsAPI.updateTripMemberStatus(
-        currentUser.uid,
-        trip.id,
-        member.personId,
-        "paid",
-        {
-          paidAmount: newManualPaidAmount,
-          finalPaymentAmount: paymentAmount,
-          note: note || "Marked paid",
-        }
-      );
-
-      return { ok: true, status: "paid" };
-    }
-
-    await tripsAPI.updateTripMemberStatus(
-      currentUser.uid,
-      trip.id,
-      member.personId,
-      "partial",
-      {
-        paidAmount: newManualPaidAmount,
-        partialPayment: {
-          amount: paymentAmount,
-          note,
-        },
-      }
-    );
-
-    return { ok: true, status: "partial" };
+    return { ok: true };
   };
 
   const removeMemberFromTrip = async (memberToRemove) => {
@@ -282,6 +200,19 @@ export default function useTripDetail({ trip, currentUser }) {
         ok: false,
         message:
           "This member paid one or more expenses. Reassign or delete those expenses before removing this member.",
+      };
+    }
+
+    const hasPayments = tripPayments.some(
+      (payment) =>
+        payment.fromPersonId === removeId || payment.toPersonId === removeId
+    );
+
+    if (hasPayments) {
+      return {
+        ok: false,
+        message:
+          "This member has recorded payments. Delete those payments before removing this member.",
       };
     }
 
@@ -320,20 +251,15 @@ export default function useTripDetail({ trip, currentUser }) {
     expenses,
     validSplitExpenses,
     invalidSplitExpenses,
+    tripPayments,
     people,
     members,
-    balances,
-    settlements,
-    memberSummary,
+    memberBalances,
+    suggestedPayments,
     categoryTotals,
     stats,
-    averageActualShare,
-    totalCollected,
-    paymentUnsettledAmount,
-    peopleStillOweCount,
-    updateExpenseStatus,
-    updateMemberStatus,
-    savePartialPayment,
+    recordPayment,
+    deletePayment,
     removeMemberFromTrip,
   };
 }

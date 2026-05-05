@@ -1,15 +1,7 @@
 import React from "react";
 import { formatMoney } from "../../../utils/tripMoney";
 
-export default function TripStatsCards({
-  stats,
-  expenses,
-  members,
-  averageActualShare,
-  totalCollected,
-  paymentUnsettledAmount,
-  peopleStillOweCount,
-}) {
+export default function TripStatsCards({ stats, expenses, members }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -25,7 +17,7 @@ export default function TripStatsCards({
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
         <p className="text-sm font-semibold text-gray-500">Average share</p>
         <p className="mt-2 text-3xl font-bold text-gray-900">
-          {formatMoney(averageActualShare)}
+          {formatMoney(stats.averageShare)}
         </p>
         <p className="text-sm text-gray-500">
           weighted across {members.length} members
@@ -33,22 +25,20 @@ export default function TripStatsCards({
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-gray-500">Total collected</p>
+        <p className="text-sm font-semibold text-gray-500">Total reimbursed</p>
         <p className="mt-2 text-3xl font-bold text-green-600">
-          {formatMoney(totalCollected)}
+          {formatMoney(stats.totalReimbursed)}
         </p>
-        <p className="text-sm text-gray-500">
-          paid toward member shares
-        </p>
+        <p className="text-sm text-gray-500">real payments recorded</p>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <p className="text-sm font-semibold text-gray-500">Unsettled</p>
+        <p className="text-sm font-semibold text-gray-500">Open balance</p>
         <p className="mt-2 text-3xl font-bold text-red-600">
-          {formatMoney(paymentUnsettledAmount)}
+          {formatMoney(stats.openBalance)}
         </p>
         <p className="text-sm text-gray-500">
-          {peopleStillOweCount} people still owe
+          {stats.peopleStillOweCount} people still owe
         </p>
       </div>
     </div>
