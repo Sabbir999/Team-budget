@@ -1,37 +1,42 @@
-import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth } from './contexts/AuthContext';
-import { AuthProvider } from './contexts/AuthContext';
-import { DataProvider } from './contexts/DataContext';
-import Layout from './components/layout/Layout';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import Dashboard from './pages/Dashboard';
-import Teams from './pages/Teams';
-import Players from './pages/Players';
-import Expenses from './pages/Expenses';
-import Payments from './pages/Payments';
-import Settings from './pages/Settings';
-import LoadingSpinner from './components/common/LoadingSpinner';
+import React, { useEffect } from "react";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+} from "react-router-dom";
 
-// Enhanced Protected Route Component with navigation blocking
+import { useAuth } from "./contexts/AuthContext";
+import { AuthProvider } from "./contexts/AuthContext";
+import { DataProvider } from "./contexts/DataContext";
+
+import Layout from "./components/layout/Layout";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
+import Settings from "./pages/Settings";
+import LoadingSpinner from "./components/common/LoadingSpinner";
+
+import { sportsRoutes } from "./modules/sports/sportsRoutes";
+import { tripsRoutes } from "./modules/trips/tripsRoutes";
+import { peopleRoutes } from "./modules/people/peopleRoutes";
+
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // If not loading and no user, redirect to login
     if (!loading && !currentUser) {
-      navigate('/login', { 
+      navigate("/login", {
         replace: true,
-        state: { from: location.pathname } // Store where they tried to go
+        state: { from: location.pathname },
       });
     }
   }, [currentUser, loading, navigate, location]);
 
-  // Show loading while checking auth state
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -40,23 +45,19 @@ function ProtectedRoute({ children }) {
     );
   }
 
-  // Only render children if user is authenticated
   return currentUser ? children : null;
 }
 
-// Enhanced Public Route Component with navigation blocking
 function PublicRoute({ children }) {
   const { currentUser, loading } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // If not loading and user is already logged in, redirect to dashboard
     if (!loading && currentUser) {
-      navigate('/', { replace: true });
+      navigate("/sports", { replace: true });
     }
   }, [currentUser, loading, navigate]);
 
-  // Show loading while checking auth state
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -65,55 +66,50 @@ function PublicRoute({ children }) {
     );
   }
 
-  // Only render children if user is NOT authenticated
   return !currentUser ? children : null;
 }
 
-// Route History Blocker to prevent back/forward navigation issues
 function RouteHistoryBlocker() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   useEffect(() => {
-    // Handle browser back/forward button
-    const handlePopState = (event) => {
-      if (!currentUser && location.pathname !== '/login' && location.pathname !== '/register' && location.pathname !== '/forgot-password') {
-        // If user is not logged in and trying to access protected routes via browser buttons
-        navigate('/login', { replace: true });
+    const publicRoutes = ["/login", "/register", "/forgot-password"];
+
+    const handlePopState = () => {
+      if (!currentUser && !publicRoutes.includes(location.pathname)) {
+        navigate("/login", { replace: true });
       }
     };
 
-    window.addEventListener('popstate', handlePopState);
+    window.addEventListener("popstate", handlePopState);
 
     return () => {
-      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener("popstate", handlePopState);
     };
   }, [currentUser, navigate, location]);
 
   return null;
 }
 
-// Authentication Check Component
 function AuthChecker() {
   const { currentUser, loading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Prevent access to protected routes when not authenticated
-    const protectedRoutes = ['/', '/teams', '/players', '/expenses', '/payments', '/settings'];
-    
-    if (!loading && !currentUser && protectedRoutes.includes(location.pathname)) {
-      navigate('/login', { 
+    const publicRoutes = ["/login", "/register", "/forgot-password"];
+
+    if (!loading && !currentUser && !publicRoutes.includes(location.pathname)) {
+      navigate("/login", {
         replace: true,
-        state: { from: location.pathname }
+        state: { from: location.pathname },
       });
     }
 
-    // Prevent authenticated users from accessing auth pages
-    if (!loading && currentUser && ['/login', '/register', '/forgot-password'].includes(location.pathname)) {
-      navigate('/', { replace: true });
+    if (!loading && currentUser && publicRoutes.includes(location.pathname)) {
+      navigate("/sports", { replace: true });
     }
   }, [currentUser, loading, location, navigate]);
 
@@ -123,11 +119,10 @@ function AuthChecker() {
 function AppContent() {
   const { currentUser, loading } = useAuth();
 
-  // Show loading spinner while checking initial auth state
   if (loading && currentUser === undefined) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" text="Loading TeamBudget..." />
+        <LoadingSpinner size="lg" text="Loading LifeStack..." />
       </div>
     );
   }
@@ -136,52 +131,80 @@ function AppContent() {
     <>
       <RouteHistoryBlocker />
       <AuthChecker />
+
       <Routes>
-        {/* Public Routes - Only accessible when NOT logged in */}
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
             <PublicRoute>
               <Login />
             </PublicRoute>
-          } 
+          }
         />
-        <Route 
-          path="/register" 
+
+        <Route
+          path="/register"
           element={
             <PublicRoute>
               <Register />
             </PublicRoute>
-          } 
+          }
         />
-        <Route 
-          path="/forgot-password" 
+
+        <Route
+          path="/forgot-password"
           element={
             <PublicRoute>
               <ForgotPassword />
             </PublicRoute>
-          } 
+          }
         />
 
-        {/* Protected Routes - Only accessible when logged in */}
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             <ProtectedRoute>
               <Layout />
             </ProtectedRoute>
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="teams" element={<Teams />} />
-          <Route path="players" element={<Players />} />
-          <Route path="expenses" element={<Expenses />} />
-          <Route path="payments" element={<Payments />} />
+          <Route index element={<Navigate to="/sports" replace />} />
+
+          {sportsRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={route.element}
+            />
+          ))}
+
+          {tripsRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={route.element}
+            />
+          ))}
+
+          {peopleRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={route.element}
+            />
+          ))}
+
           <Route path="settings" element={<Settings />} />
+
+          {/* Temporary old route redirects */}
+          <Route path="dashboard" element={<Navigate to="/sports" replace />} />
+          <Route path="teams" element={<Navigate to="/sports/teams" replace />} />
+          <Route path="players" element={<Navigate to="/sports/players" replace />} />
+          <Route path="expenses" element={<Navigate to="/sports/expenses" replace />} />
+          <Route path="payments" element={<Navigate to="/sports/payments" replace />} />
         </Route>
 
-        {/* Fallback route - handles all undefined routes */}
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/sports" replace />} />
       </Routes>
     </>
   );
