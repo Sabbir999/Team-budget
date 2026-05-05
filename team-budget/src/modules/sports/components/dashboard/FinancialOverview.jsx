@@ -11,19 +11,14 @@ import {
 
 export default function FinancialOverview({ expenses = [], payments = [] }) {
   const totalExpenses = expenses.reduce(
-    (sum, expense) => sum + (Number(expense.total) || 0),
+    (sum, expense) => sum + (Number(expense.total ?? expense.amount) || 0),
     0
   );
 
-  const totalCollected = payments.reduce((sum, payment) => {
-    const status = (payment.status || "").toString().toLowerCase();
-
-    if (status === "paid" || status === "completed" || status === "confirmed") {
-      return sum + (Number(payment.amount) || 0);
-    }
-
-    return sum;
-  }, 0);
+  const totalCollected = payments.reduce(
+    (sum, payment) => sum + (Number(payment.amount) || 0),
+    0
+  );
 
   const outstanding = totalExpenses - totalCollected;
   const collectionRate =

@@ -1,8 +1,8 @@
 import React from "react";
-import { Users, Activity } from "lucide-react";
+import { Activity, Users } from "lucide-react";
 
-export default function DashboardStats({ teams = [], players = [] }) {
-  const activePlayers = players.filter((player) => player.isActive).length;
+export default function DashboardStats({ teams = [] }) {
+  const memberCount = teams.reduce((sum, team) => sum + (team.members?.filter((member) => member.isActive !== false).length || 0), 0);
 
   const stats = [
     {
@@ -13,8 +13,8 @@ export default function DashboardStats({ teams = [], players = [] }) {
       bgColor: "bg-blue-50",
     },
     {
-      name: "Active Players",
-      value: activePlayers,
+      name: "Team Members",
+      value: memberCount,
       icon: Users,
       color: "text-green-600",
       bgColor: "bg-green-50",
@@ -23,27 +23,17 @@ export default function DashboardStats({ teams = [], players = [] }) {
 
   return (
     <div className="w-full">
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-2 mb-6 w-full">
+      <div className="mb-6 grid w-full gap-6 sm:grid-cols-2">
         {stats.map((stat) => {
           const Icon = stat.icon;
 
           return (
-            <div
-              key={stat.name}
-              className="rounded-2xl bg-white shadow-sm border border-gray-100 p-5 flex items-center justify-between transition hover:shadow-md"
-            >
+            <div key={stat.name} className="flex items-center justify-between rounded-2xl border border-gray-100 bg-white p-5 shadow-sm transition hover:shadow-md">
               <div>
-                <p className="text-sm font-medium text-gray-500">
-                  {stat.name}
-                </p>
-                <h3 className="text-2xl font-semibold text-gray-900 mt-1">
-                  {stat.value}
-                </h3>
+                <p className="text-sm font-medium text-gray-500">{stat.name}</p>
+                <h3 className="mt-1 text-2xl font-semibold text-gray-900">{stat.value}</h3>
               </div>
-
-              <div
-                className={`p-3 rounded-xl ${stat.bgColor} ${stat.color} flex items-center justify-center`}
-              >
+              <div className={`flex items-center justify-center rounded-xl p-3 ${stat.bgColor} ${stat.color}`}>
                 <Icon className="h-5 w-5" />
               </div>
             </div>

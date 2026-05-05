@@ -1,9 +1,4 @@
-export { default as sportsAPI } from "./api/sportsAPI";
-export { sportsConfig } from "./api/sportsConfig";
-export { sportsRoutes } from "./sportsRoutes";
-
-export { default as SportsDashboard } from "./pages/SportsDashboard";
-export { default as TeamsPage } from "./pages/TeamsPage";
-export { default as PlayersPage } from "./pages/PlayersPage";
-export { default as SportsExpensesPage } from "./pages/SportsExpensesPage";
-export { default as PaymentsPage } from "./pages/PaymentsPage";
+export { sportsRoutes } from "./sportsRoutes.jsx";
+export { default as SportsDashboard } from "./pages/SportsDashboard.jsx";
+export { default as sportsAPI, teamsAPI } from "./api/sportsAPI.js";
+export { default as teamPaymentsAPI } from "./api/teamPaymentsAPI.js";

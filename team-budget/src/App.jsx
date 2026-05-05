@@ -8,9 +8,7 @@ import {
   useNavigate,
 } from "react-router-dom";
 
-import { useAuth } from "./contexts/AuthContext";
-import { AuthProvider } from "./contexts/AuthContext";
-import { DataProvider } from "./contexts/DataContext";
+import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 import Layout from "./components/layout/Layout";
 import Login from "./pages/Login";
@@ -46,11 +44,11 @@ function ProtectedRoute({ children }) {
         state: { from: location.pathname },
       });
     }
-  }, [currentUser, loading, navigate, location]);
+  }, [currentUser, loading, navigate, location.pathname]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <LoadingSpinner size="lg" text="Checking authentication..." />
       </div>
     );
@@ -71,68 +69,47 @@ function PublicRoute({ children }) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <LoadingSpinner size="lg" text="Checking authentication..." />
       </div>
     );
   }
 
-  return !currentUser ? children : null;
+  return currentUser ? null : children;
 }
 
-function RouteHistoryBlocker() {
-  const { currentUser } = useAuth();
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    const handlePopState = () => {
-      if (!currentUser && !isPublicRoute(location.pathname)) {
-        navigate("/login", { replace: true });
-      }
-    };
-
-    window.addEventListener("popstate", handlePopState);
-
-    return () => {
-      window.removeEventListener("popstate", handlePopState);
-    };
-  }, [currentUser, navigate, location]);
-
-  return null;
-}
-
-function AuthChecker() {
+function AuthRedirectGuard() {
   const { currentUser, loading } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !currentUser && !isPublicRoute(location.pathname)) {
+    if (loading) {
+      return;
+    }
+
+    if (!currentUser && !isPublicRoute(location.pathname)) {
       navigate("/login", {
         replace: true,
         state: { from: location.pathname },
       });
+      return;
     }
 
-    if (
-      !loading &&
-      currentUser &&
-      publicAuthRoutes.includes(location.pathname)
-    ) {
+    if (currentUser && publicAuthRoutes.includes(location.pathname)) {
       navigate("/sports", { replace: true });
     }
-  }, [currentUser, loading, location, navigate]);
+  }, [currentUser, loading, location.pathname, navigate]);
 
   return null;
 }
 
 function AppContent() {
-  const { currentUser, loading } = useAuth();
+  const { loading, currentUser } = useAuth();
 
   if (loading && currentUser === undefined) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-gray-50">
         <LoadingSpinner size="lg" text="Loading LifeStack..." />
       </div>
     );
@@ -140,8 +117,7 @@ function AppContent() {
 
   return (
     <>
-      <RouteHistoryBlocker />
-      <AuthChecker />
+      <AuthRedirectGuard />
 
       <Routes>
         {/* Public auth routes */}
@@ -214,12 +190,12 @@ function AppContent() {
 
           <Route path="settings" element={<Settings />} />
 
-          {/* Temporary old route redirects */}
+          {/* Old route redirects */}
           <Route path="dashboard" element={<Navigate to="/sports" replace />} />
-          <Route path="teams" element={<Navigate to="/sports/teams" replace />} />
-          <Route path="players" element={<Navigate to="/sports/players" replace />} />
-          <Route path="expenses" element={<Navigate to="/sports/expenses" replace />} />
-          <Route path="payments" element={<Navigate to="/sports/payments" replace />} />
+          <Route path="teams" element={<Navigate to="/sports" replace />} />
+          <Route path="players" element={<Navigate to="/sports" replace />} />
+          <Route path="expenses" element={<Navigate to="/sports" replace />} />
+          <Route path="payments" element={<Navigate to="/sports" replace />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/sports" replace />} />
@@ -228,18 +204,14 @@ function AppContent() {
   );
 }
 
-function App() {
+export default function App() {
   return (
     <Router>
       <AuthProvider>
-        <DataProvider>
-          <div className="min-h-screen bg-gray-50">
-            <AppContent />
-          </div>
-        </DataProvider>
+        <div className="min-h-screen bg-gray-50">
+          <AppContent />
+        </div>
       </AuthProvider>
     </Router>
   );
 }
-
-export default App;

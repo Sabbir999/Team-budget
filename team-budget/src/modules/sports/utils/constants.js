@@ -1,19 +1,3 @@
-// src/modules/sports/utils/constants.js
-
-export const SPORT_TYPES = [
-  "badminton",
-  "basketball",
-  "soccer",
-  "volleyball",
-  "tennis",
-  "hockey",
-  "baseball",
-  "football",
-  "cricket",
-  "rugby",
-  "other",
-];
-
 export const CURRENCIES = [
   { code: "USD", symbol: "$", name: "US Dollar" },
   { code: "CAD", symbol: "$", name: "Canadian Dollar" },
@@ -36,6 +20,7 @@ export const PAYMENT_STATUSES = [
   { value: "paid", label: "Paid", color: "success" },
   { value: "pending", label: "Pending", color: "warning" },
   { value: "partial", label: "Partial", color: "danger" },
+  { value: "unpaid", label: "Unpaid", color: "danger" },
 ];
 
 export const MONTHS = [
@@ -53,40 +38,15 @@ export const MONTHS = [
   "December",
 ];
 
-export const SHUTTLECOCK_TYPES = [
-  "Not played",
-  "Aero & Ling",
-  "Yonex",
-  "Victor",
-  "Li-Ning",
-  "Other",
-];
-
 export const DEFAULT_TEAM_SETTINGS = {
   currency: "USD",
-  sportType: "badminton",
   paymentMethod: "zelle",
 };
 
 export const EXPENSE_CATEGORIES = [
-  {
-    key: "indoor",
-    label: "Indoor Court Fee",
-    description: "Court rental fees",
-  },
-  {
-    key: "shuttlecock",
-    label: "Shuttlecock Cost",
-    description: "Shuttlecock purchases",
-  },
-  {
-    key: "equipment",
-    label: "Equipment Cost",
-    description: "Rackets, nets, other equipment",
-  },
-  {
-    key: "other",
-    label: "Other Expenses",
-    description: "Miscellaneous expenses",
-  },
+  { key: "venue", label: "Venue" },
+  { key: "equipment", label: "Equipment" },
+  { key: "tournament", label: "Tournament" },
+  { key: "uniform", label: "Uniform" },
+  { key: "other", label: "Other" },
 ];

@@ -1,8 +1,6 @@
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^[+]?[1-9]\d{0,15}$/;
 
-const getNumber = (value) => Number(value) || 0;
-
 export function isValidEmail(email) {
   if (!email) {
     return true;
@@ -35,17 +33,12 @@ export function isPositiveNumber(value) {
 
 export function validateTeam(teamData = {}) {
   const errors = {};
-
   const name = teamData.name?.trim();
 
   if (!name) {
     errors.name = "Team name is required";
   } else if (name.length < 2) {
     errors.name = "Team name must be at least 2 characters";
-  }
-
-  if (!teamData.sportType) {
-    errors.sportType = "Sport type is required";
   }
 
   if (!teamData.currency) {
@@ -58,23 +51,15 @@ export function validateTeam(teamData = {}) {
   };
 }
 
-export function validatePlayer(playerData = {}) {
+export function validateTeamMember(memberData = {}) {
   const errors = {};
 
-  const name = playerData.name?.trim();
-
-  if (!name) {
-    errors.name = "Player name is required";
-  } else if (name.length < 2) {
-    errors.name = "Player name must be at least 2 characters";
+  if (!memberData.personId) {
+    errors.personId = "Person is required";
   }
 
-  if (playerData.email && !isValidEmail(playerData.email)) {
-    errors.email = "Please enter a valid email address";
-  }
-
-  if (playerData.phone && !isValidPhone(playerData.phone)) {
-    errors.phone = "Please enter a valid phone number";
+  if (memberData.shareWeight !== undefined && Number(memberData.shareWeight) < 0) {
+    errors.shareWeight = "Share weight cannot be negative";
   }
 
   return {
@@ -86,32 +71,26 @@ export function validatePlayer(playerData = {}) {
 export function validateExpense(expenseData = {}) {
   const errors = {};
 
+  if (!expenseData.title?.trim()) {
+    errors.title = "Expense title is required";
+  }
+
   if (!expenseData.month) {
     errors.month = "Month is required";
   }
 
   if (!expenseData.year) {
     errors.year = "Year is required";
-  } else {
-    const year = Number(expenseData.year);
-
-    if (!Number.isInteger(year) || year < 2020 || year > 2030) {
-      errors.year = "Please enter a valid year";
-    }
   }
 
-  const total =
-    getNumber(expenseData.indoor) +
-    getNumber(expenseData.shuttlecock) +
-    getNumber(expenseData.equipment) +
-    getNumber(expenseData.other);
+  const amount = Number(expenseData.amount ?? expenseData.total);
 
-  if (total <= 0) {
-    errors.total = "At least one expense amount must be greater than 0";
+  if (!Number.isFinite(amount) || amount <= 0) {
+    errors.amount = "Amount must be greater than 0";
   }
 
-  if (getNumber(expenseData.playersCount) < 0) {
-    errors.playersCount = "Number of players cannot be negative";
+  if (Number(expenseData.membersCount ?? 0) < 0) {
+    errors.membersCount = "Number of members cannot be negative";
   }
 
   return {
@@ -131,8 +110,8 @@ export function validatePayment(paymentData = {}) {
     errors.year = "Year is required";
   }
 
-  if (!paymentData.playerId) {
-    errors.playerId = "Player is required";
+  if (!paymentData.personId && !paymentData.playerId) {
+    errors.personId = "Member is required";
   }
 
   const amount = Number(paymentData.amount);

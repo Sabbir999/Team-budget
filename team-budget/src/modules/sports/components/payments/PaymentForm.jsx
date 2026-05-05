@@ -1,110 +1,89 @@
-import React, { useState, useEffect } from 'react';
-import { useData } from '../../../../contexts/DataContext';
+import React, { useEffect, useState } from "react";
+import { AlertCircle } from "lucide-react";
+import { useData } from "../../../../contexts/DataContext";
 import Modal from "../../../../components/common/Modal.jsx";
-import { X, AlertCircle } from 'lucide-react';
+import { MONTHS, PAYMENT_METHODS, PAYMENT_STATUSES } from "../../utils/constants.js";
 
-const months = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
-
-const paymentMethods = [
-  'zelle',
-  'venmo', 
-  'paypal',
-  'cash',
-  'bank_transfer',
-  'other'
-];
-
-const paymentStatuses = [
-  'paid',
-  'pending',
-  'partial',
-  'unpaid'
-];
-
-export default function PaymentForm({ payment, onClose }) {
-  const { createPayment, updatePayment, currentTeam, players, payments } = useData();
+export default function PaymentForm({ payment, peopleMap = {}, onClose }) {
+  const { createPayment, updatePayment, currentTeam, payments } = useData();
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState({});
   const currentYear = new Date().getFullYear();
-  
-  const [formData, setFormData] = useState({
-    month: months[new Date().getMonth()],
+  const teamMembers = currentTeam?.members || [];
+
+  const [form, setForm] = useState({
+    month: MONTHS[new Date().getMonth()],
     year: currentYear,
-    teamId: currentTeam?.id || '',
-    playerId: '',
-    amount: '',
-    status: 'pending', // Changed from 'paid' to 'pending'
-    paymentMethod: 'zelle',
-    notes: '',
-    paidAt: null // Changed from Date.now() to null
+    personId: "",
+    amount: "",
+    status: "pending",
+    paymentMethod: "zelle",
+    notes: "",
+    paidAt: null,
   });
 
   useEffect(() => {
     if (payment) {
-      setFormData({
-        month: payment.month || months[new Date().getMonth()],
+      setForm({
+        month: payment.month || MONTHS[new Date().getMonth()],
         year: payment.year || currentYear,
-        teamId: payment.teamId || currentTeam?.id || '',
-        playerId: payment.playerId || '',
-        amount: payment.amount || '',
-        status: payment.status || 'pending', // Changed here too
-        paymentMethod: payment.paymentMethod || 'zelle',
-        notes: payment.notes || '',
-        paidAt: payment.paidAt || null // And here
+        personId: payment.personId || payment.playerId || "",
+        amount: payment.amount || "",
+        status: payment.status || "pending",
+        paymentMethod: payment.paymentMethod || "zelle",
+        notes: payment.notes || "",
+        paidAt: payment.paidAt || null,
       });
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        teamId: currentTeam?.id || '',
-        status: 'pending', // Ensure new payments default to pending
-        paidAt: null
-      }));
     }
-  }, [payment, currentTeam, currentYear]);
+  }, [payment, currentYear]);
+
+  const updateField = (name, value) => {
+    if (errors[name] || errors.duplicate) {
+      setErrors((previous) => ({ ...previous, [name]: "", duplicate: "" }));
+    }
+
+    setForm((previous) => ({ ...previous, [name]: value }));
+  };
 
   const validateForm = () => {
-    const newErrors = {};
+    const nextErrors = {};
 
-    if (!formData.playerId) {
-      newErrors.playerId = 'Please select a player';
+    if (!form.personId) {
+      nextErrors.personId = "Please select a member";
     }
 
-    const amountValue = parseFloat(formData.amount);
-    if (isNaN(amountValue) || amountValue <= 0) {
-      newErrors.amount = 'Please enter a valid amount greater than 0';
+    const amount = Number(form.amount);
+    if (!amount || amount <= 0) {
+      nextErrors.amount = "Please enter a valid amount greater than 0";
     }
 
-    // Check for duplicate payment (same player, month, year) when creating new
     if (!payment) {
-      const duplicatePayment = payments.find(p => 
-        p.playerId === formData.playerId && 
-        p.month === formData.month && 
-        p.year === formData.year &&
-        p.id !== payment?.id
+      const duplicatePayment = payments.find(
+        (item) =>
+          (item.personId || item.playerId) === form.personId &&
+          item.month === form.month &&
+          String(item.year) === String(form.year)
       );
-      
+
       if (duplicatePayment) {
-        const playerName = players.find(p => p.id === formData.playerId)?.name || 'Player';
-        newErrors.duplicate = `${playerName} already has a payment record for ${formData.month} ${formData.year}`;
+        const personName = peopleMap[form.personId]?.name || "Member";
+        nextErrors.duplicate = `${personName} already has a payment record for ${form.month} ${form.year}`;
       }
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
     if (!validateForm()) {
       return;
     }
 
     if (!currentTeam) {
-      alert('Please select a team first');
+      alert("Please select a team first");
       return;
     }
 
@@ -112,11 +91,12 @@ export default function PaymentForm({ payment, onClose }) {
 
     try {
       const paymentData = {
-        ...formData,
-        amount: parseFloat(formData.amount),
+        ...form,
         teamId: currentTeam.id,
-        // Only set paidAt if status is actually paid
-        paidAt: formData.status === 'paid' ? (formData.paidAt || Date.now()) : null
+        personId: form.personId,
+        playerId: form.personId,
+        amount: Number(form.amount),
+        paidAt: form.status === "paid" ? form.paidAt || Date.now() : null,
       };
 
       if (payment) {
@@ -124,236 +104,81 @@ export default function PaymentForm({ payment, onClose }) {
       } else {
         await createPayment(paymentData);
       }
+
       onClose();
     } catch (error) {
-      console.error('Error saving payment:', error);
-      alert('Failed to save payment: ' + error.message);
+      console.error("Error saving payment:", error);
+      alert("Failed to save payment: " + error.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    
-    // Clear errors when user starts typing
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-    if (errors.duplicate) {
-      setErrors(prev => ({ ...prev, duplicate: '' }));
-    }
-    
-    if (name === 'amount') {
-      // Allow empty string for amount so user can type
-      setFormData(prev => ({
-        ...prev,
-        [name]: value === '' ? '' : value
-      }));
-    } else {
-      setFormData(prev => ({
-        ...prev,
-        [name]: value
-      }));
-    }
-  };
-
-  const formatStatus = (status) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  };
-
-  const formatPaymentMethod = (method) => {
-    const methodNames = {
-      zelle: 'Zelle',
-      venmo: 'Venmo',
-      paypal: 'PayPal',
-      cash: 'Cash',
-      bank_transfer: 'Bank Transfer',
-      other: 'Other'
-    };
-    return methodNames[method] || method;
-  };
-
-  const activePlayers = players.filter(player => player.isActive);
-
   return (
-    <Modal
-      title={payment ? 'Edit Payment' : 'Record New Payment'}
-      onClose={onClose}
-    >
+    <Modal title={payment ? "Edit Payment" : "Record Payment"} onClose={onClose}>
       <form onSubmit={handleSubmit} className="space-y-4">
         {errors.duplicate && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start space-x-2">
-            <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
-            <p className="text-red-800 text-sm">{errors.duplicate}</p>
+          <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
+            <AlertCircle className="mt-0.5 h-4 w-4 flex-shrink-0 text-red-600" />
+            <p className="text-sm text-red-800">{errors.duplicate}</p>
           </div>
         )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="month" className="block text-sm font-medium text-gray-700 mb-1">
-              Month *
-            </label>
-            <select
-              id="month"
-              name="month"
-              required
-              value={formData.month}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            >
-              {months.map((month) => (
-                <option key={month} value={month}>{month}</option>
-              ))}
+            <label className="mb-1 block text-sm font-medium text-gray-700">Month *</label>
+            <select value={form.month} onChange={(event) => updateField("month", event.target.value)} className="input-field" required>
+              {MONTHS.map((month) => <option key={month} value={month}>{month}</option>)}
             </select>
           </div>
-
           <div>
-            <label htmlFor="year" className="block text-sm font-medium text-gray-700 mb-1">
-              Year *
-            </label>
-            <input
-              type="number"
-              id="year"
-              name="year"
-              required
-              min="2020"
-              max="2030"
-              value={formData.year}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            />
+            <label className="mb-1 block text-sm font-medium text-gray-700">Year *</label>
+            <input type="number" min="2020" max="2035" value={form.year} onChange={(event) => updateField("year", event.target.value)} className="input-field" required />
           </div>
         </div>
 
         <div>
-          <label htmlFor="playerId" className="block text-sm font-medium text-gray-700 mb-1">
-            Player *
-          </label>
-          <select
-            id="playerId"
-            name="playerId"
-            required
-            value={formData.playerId}
-            onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-              errors.playerId ? 'border-red-500' : 'border-gray-300'
-            }`}
-          >
-            <option value="">Select a player</option>
-            {activePlayers.map((player) => (
-              <option key={player.id} value={player.id}>
-                {player.name}
-              </option>
-            ))}
+          <label className="mb-1 block text-sm font-medium text-gray-700">Member *</label>
+          <select value={form.personId} onChange={(event) => updateField("personId", event.target.value)} className={`input-field ${errors.personId ? "border-red-500" : ""}`} required>
+            <option value="">Select a member</option>
+            {teamMembers.filter((member) => member.isActive !== false).map((member) => {
+              const person = peopleMap[member.personId];
+              return <option key={member.personId} value={member.personId}>{person?.name || "Unknown person"}</option>;
+            })}
           </select>
-          {errors.playerId && (
-            <p className="text-red-500 text-sm mt-1">{errors.playerId}</p>
-          )}
+          {errors.personId && <p className="mt-1 text-sm text-red-500">{errors.personId}</p>}
         </div>
 
         <div>
-          <label htmlFor="amount" className="block text-sm font-medium text-gray-700 mb-1">
-            Amount ($) *
-          </label>
-          <input
-            type="number"
-            id="amount"
-            name="amount"
-            required
-            step="0.01"
-            min="0.01"
-            value={formData.amount}
-            onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors ${
-              errors.amount ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="0.00"
-          />
-          {errors.amount && (
-            <p className="text-red-500 text-sm mt-1">{errors.amount}</p>
-          )}
+          <label className="mb-1 block text-sm font-medium text-gray-700">Amount *</label>
+          <input type="number" min="0.01" step="0.01" value={form.amount} onChange={(event) => updateField("amount", event.target.value)} className={`input-field ${errors.amount ? "border-red-500" : ""}`} placeholder="0.00" required />
+          {errors.amount && <p className="mt-1 text-sm text-red-500">{errors.amount}</p>}
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="status" className="block text-sm font-medium text-gray-700 mb-1">
-              Status *
-            </label>
-            <select
-              id="status"
-              name="status"
-              required
-              value={formData.status}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            >
-              {paymentStatuses.map((status) => (
-                <option key={status} value={status}>
-                  {formatStatus(status)}
-                </option>
-              ))}
+            <label className="mb-1 block text-sm font-medium text-gray-700">Status *</label>
+            <select value={form.status} onChange={(event) => updateField("status", event.target.value)} className="input-field" required>
+              {PAYMENT_STATUSES.map((status) => <option key={status.value} value={status.value}>{status.label}</option>)}
             </select>
           </div>
-
           <div>
-            <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700 mb-1">
-              Payment Method *
-            </label>
-            <select
-              id="paymentMethod"
-              name="paymentMethod"
-              required
-              value={formData.paymentMethod}
-              onChange={handleChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            >
-              {paymentMethods.map((method) => (
-                <option key={method} value={method}>
-                  {formatPaymentMethod(method)}
-                </option>
-              ))}
+            <label className="mb-1 block text-sm font-medium text-gray-700">Payment method *</label>
+            <select value={form.paymentMethod} onChange={(event) => updateField("paymentMethod", event.target.value)} className="input-field" required>
+              {PAYMENT_METHODS.map((method) => <option key={method.value} value={method.value}>{method.label}</option>)}
             </select>
           </div>
         </div>
 
         <div>
-          <label htmlFor="notes" className="block text-sm font-medium text-gray-700 mb-1">
-            Notes
-          </label>
-          <textarea
-            id="notes"
-            name="notes"
-            rows={3}
-            value={formData.notes}
-            onChange={handleChange}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-            placeholder="Any additional notes about this payment..."
-          />
+          <label className="mb-1 block text-sm font-medium text-gray-700">Notes</label>
+          <textarea value={form.notes} onChange={(event) => updateField("notes", event.target.value)} className="input-field" rows={3} placeholder="Optional notes" />
         </div>
 
-        <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={loading}
-            className="px-4 py-2 text-gray-700 bg-gray-200 hover:bg-gray-300 rounded-lg transition-colors font-medium disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium disabled:opacity-50 flex items-center space-x-2"
-          >
-            {loading ? (
-              <>
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                <span>Saving...</span>
-              </>
-            ) : (
-              <span>{payment ? 'Update Payment' : 'Record Payment'}</span>
-            )}
+        <div className="flex justify-end gap-3 pt-4">
+          <button type="button" onClick={onClose} className="rounded-lg border border-gray-300 px-4 py-2 font-medium text-gray-700 hover:bg-gray-50">Cancel</button>
+          <button type="submit" disabled={loading} className="rounded-lg bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700 disabled:opacity-60">
+            {loading ? "Saving..." : payment ? "Update Payment" : "Record Payment"}
           </button>
         </div>
       </form>

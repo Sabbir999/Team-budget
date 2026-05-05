@@ -1,223 +1,256 @@
-import React, { useState, useEffect } from 'react';
-import { useData } from '../../../../contexts/DataContext';
-import Modal from "../../../../components/common/Modal.jsx";
+import React, { useEffect, useState } from "react";
+import { X } from "lucide-react";
 
-const sportTypes = [
-  'badminton',
-  'basketball',
-  'soccer',
-  'volleyball',
-  'tennis',
-  'hockey',
-  'baseball',
-  'football',
-  'cricket',
-  'rugby',
-  'other'
-];
+import { useAuth } from "../../../../contexts/AuthContext.jsx";
+import { teamsAPI } from "../../api/sportsAPI.js";
+import { peopleAPI } from "../../../people/api/peopleAPI.js";
+import { snapshotToArray } from "../../../people/utils/peopleHelpers.js";
+import PersonPicker from "../../../people/components/PersonPicker.jsx";
 
-const currencies = ['USD', 'CAD', 'EUR', 'GBP', 'AUD'];
+const currencies = ["USD", "CAD", "EUR", "GBP", "AUD"];
 
 export default function TeamForm({ team, onClose }) {
-  const { createTeam, updateTeam } = useData();
-  const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    sportType: 'badminton',
-    currency: 'USD',
-    location: '',
-    schedule: '',
-    paymentMethod: 'zelle',
-    paymentDetails: ''
+  const { currentUser } = useAuth();
+  const isEditing = Boolean(team);
+
+  const [people, setPeople] = useState([]);
+  const [selectedPersonIds, setSelectedPersonIds] = useState(
+    team?.members?.map((member) => member.personId || member.id).filter(Boolean) || []
+  );
+
+  const [form, setForm] = useState({
+    name: team?.name || "",
+    location: team?.location || "",
+    season: team?.season || "",
+    currency: team?.currency || "USD",
+    schedule: team?.schedule || "",
+    paymentMethod: team?.paymentMethod || "zelle",
+    paymentDetails: team?.paymentDetails || "",
+    description: team?.description || "",
   });
 
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
   useEffect(() => {
-    if (team) {
-      setFormData({
-        name: team.name || '',
-        sportType: team.sportType || 'badminton',
-        currency: team.currency || 'USD',
-        location: team.location || '',
-        schedule: team.schedule || '',
-        paymentMethod: team.paymentMethod || 'zelle',
-        paymentDetails: team.paymentDetails || ''
-      });
+    if (!currentUser?.uid) {
+      return undefined;
     }
-  }, [team]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+    const unsubscribe = peopleAPI.getPeople(currentUser.uid, (snapshot) => {
+      setPeople(snapshotToArray(snapshot));
+    });
 
-    try {
-      if (team) {
-        await updateTeam(team.id, formData);
-      } else {
-        await createTeam(formData);
-      }
-      onClose();
-    } catch (error) {
-      console.error('Error saving team:', error);
-      alert('Failed to save team: ' + error.message);
-    } finally {
-      setLoading(false);
-    }
+    return () => unsubscribe();
+  }, [currentUser?.uid]);
+
+  const updateField = (name, value) => {
+    setForm((previous) => ({ ...previous, [name]: value }));
   };
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const buildTeamMembers = () =>
+    selectedPersonIds.map((personId, index) => {
+      const existingMember = team?.members?.find(
+        (member) => (member.personId || member.id) === personId
+      );
+
+      return {
+        personId,
+        role: existingMember?.role || (index === 0 ? "Captain" : "Player"),
+        position: existingMember?.position || "",
+        jerseyNumber: existingMember?.jerseyNumber || "",
+        shareWeight: existingMember?.shareWeight || 1,
+        isActive: existingMember?.isActive ?? true,
+        joinedAt: existingMember?.joinedAt || Date.now(),
+      };
+    });
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!currentUser?.uid) {
+      setError("You must be logged in.");
+      return;
+    }
+
+    if (!form.name.trim()) {
+      setError("Team name is required.");
+      return;
+    }
+
+    if (selectedPersonIds.length === 0) {
+      setError("Add at least one person to the team.");
+      return;
+    }
+
+    setSaving(true);
+    setError("");
+
+    try {
+      const teamData = {
+        ...form,
+        members: buildTeamMembers(),
+      };
+
+      if (isEditing) {
+        await teamsAPI.updateTeam(currentUser.uid, team.id, teamData);
+      } else {
+        await teamsAPI.createTeam(currentUser.uid, teamData);
+      }
+
+      onClose();
+    } catch (submitError) {
+      console.error(submitError);
+      setError("Could not save team.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <Modal
-      title={team ? 'Edit Team' : 'Create New Team'}
-      onClose={onClose}
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="name" className="block text-sm font-medium text-gray-700">
-            Team Name *
-          </label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            required
-            value={formData.name}
-            onChange={handleChange}
-            className="input-field mt-1"
-            placeholder="e.g., Badminton Fall 2025"
-          />
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+      <form
+        onSubmit={handleSubmit}
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl"
+      >
+        <div className="mb-6 flex items-center justify-between">
           <div>
-            <label htmlFor="sportType" className="block text-sm font-medium text-gray-700">
-              Sport Type *
-            </label>
-            <select
-              id="sportType"
-              name="sportType"
-              required
-              value={formData.sportType}
-              onChange={handleChange}
-              className="input-field mt-1"
-            >
-              {sportTypes.map((sport) => (
-                <option key={sport} value={sport}>
-                  {sport.charAt(0).toUpperCase() + sport.slice(1)}
-                </option>
-              ))}
-            </select>
+            <h2 className="text-xl font-bold text-gray-900">
+              {isEditing ? "Edit team" : "Create team"}
+            </h2>
+            <p className="text-sm text-gray-500">
+              Team members are selected from your global People list.
+            </p>
           </div>
 
-          <div>
-            <label htmlFor="currency" className="block text-sm font-medium text-gray-700">
-              Currency *
-            </label>
-            <select
-              id="currency"
-              name="currency"
-              required
-              value={formData.currency}
-              onChange={handleChange}
-              className="input-field mt-1"
-            >
-              {currencies.map((currency) => (
-                <option key={currency} value={currency}>
-                  {currency}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="location" className="block text-sm font-medium text-gray-700">
-            Location
-          </label>
-          <input
-            type="text"
-            id="location"
-            name="location"
-            value={formData.location}
-            onChange={handleChange}
-            className="input-field mt-1"
-            placeholder="e.g., Warren Athletic Center"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="schedule" className="block text-sm font-medium text-gray-700">
-            Schedule
-          </label>
-          <input
-            type="text"
-            id="schedule"
-            name="schedule"
-            value={formData.schedule}
-            onChange={handleChange}
-            className="input-field mt-1"
-            placeholder="e.g., Every Saturday 11PM-1AM"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="paymentMethod" className="block text-sm font-medium text-gray-700">
-            Preferred Payment Method
-          </label>
-          <select
-            id="paymentMethod"
-            name="paymentMethod"
-            value={formData.paymentMethod}
-            onChange={handleChange}
-            className="input-field mt-1"
-          >
-            <option value="zelle">Zelle</option>
-            <option value="venmo">Venmo</option>
-            <option value="paypal">PayPal</option>
-            <option value="cash">Cash</option>
-            <option value="bank_transfer">Bank Transfer</option>
-            <option value="other">Other</option>
-          </select>
-        </div>
-
-        <div>
-          <label htmlFor="paymentDetails" className="block text-sm font-medium text-gray-700">
-            Payment Details
-          </label>
-          <input
-            type="text"
-            id="paymentDetails"
-            name="paymentDetails"
-            value={formData.paymentDetails}
-            onChange={handleChange}
-            className="input-field mt-1"
-            placeholder="e.g., Zelle: 313-455-6252"
-          />
-        </div>
-
-        <div className="flex justify-end space-x-3 pt-4">
           <button
             type="button"
             onClick={onClose}
-            className="btn-secondary"
+            className="rounded-lg p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {error && (
+          <div className="mb-4 rounded-xl bg-red-50 p-3 text-sm font-medium text-red-600">
+            {error}
+          </div>
+        )}
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className="md:col-span-2">
+            <span className="text-sm font-semibold text-gray-700">Team name</span>
+            <input
+              value={form.name}
+              onChange={(event) => updateField("name", event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5"
+              placeholder="Michigan Bengals"
+            />
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-gray-700">Location</span>
+            <input
+              value={form.location}
+              onChange={(event) => updateField("location", event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5"
+              placeholder="Michigan"
+            />
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-gray-700">Season</span>
+            <input
+              value={form.season}
+              onChange={(event) => updateField("season", event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5"
+              placeholder="2026"
+            />
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-gray-700">Currency</span>
+            <select
+              value={form.currency}
+              onChange={(event) => updateField("currency", event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5"
+            >
+              {currencies.map((currency) => (
+                <option key={currency} value={currency}>{currency}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-gray-700">Schedule</span>
+            <input
+              value={form.schedule}
+              onChange={(event) => updateField("schedule", event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5"
+              placeholder="Every Sunday"
+            />
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-gray-700">Payment method</span>
+            <input
+              value={form.paymentMethod}
+              onChange={(event) => updateField("paymentMethod", event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5"
+              placeholder="Zelle"
+            />
+          </label>
+
+          <label>
+            <span className="text-sm font-semibold text-gray-700">Payment details</span>
+            <input
+              value={form.paymentDetails}
+              onChange={(event) => updateField("paymentDetails", event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5"
+              placeholder="email@example.com"
+            />
+          </label>
+
+          <label className="md:col-span-2">
+            <span className="text-sm font-semibold text-gray-700">Description</span>
+            <textarea
+              value={form.description}
+              onChange={(event) => updateField("description", event.target.value)}
+              className="mt-1 w-full rounded-xl border border-gray-300 px-4 py-2.5"
+              rows={3}
+              placeholder="Optional team notes"
+            />
+          </label>
+
+          <div className="md:col-span-2">
+            <PersonPicker
+              people={people}
+              selectedPersonIds={selectedPersonIds}
+              onChange={setSelectedPersonIds}
+              label="Team members"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-xl border border-gray-300 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-50"
           >
             Cancel
           </button>
+
           <button
             type="submit"
-            disabled={loading}
-            className="btn-primary disabled:opacity-50"
+            disabled={saving}
+            className="rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
-            {loading ? 'Saving...' : (team ? 'Update Team' : 'Create Team')}
+            {saving ? "Saving..." : isEditing ? "Save changes" : "Create team"}
           </button>
         </div>
       </form>
-    </Modal>
+    </div>
   );
 }

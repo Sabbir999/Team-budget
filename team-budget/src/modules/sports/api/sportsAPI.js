@@ -7,523 +7,179 @@ import {
   push,
   onValue,
   off,
-  query,
-  orderByChild,
-  equalTo,
 } from "firebase/database";
 
 import { db } from "../../../firebase-config";
 import { DB_PATHS } from "../../../services/paths";
-import { getTotalCalculationFields } from "./sportsConfig";
 
 const now = () => Date.now();
 
-const getUserCollectionPath = (userId, collectionName) =>
-  `${DB_PATHS.USERS}/${userId}/${collectionName}`;
+const TEAMS_KEY = DB_PATHS.TEAMS || "teams";
+const TEAM_EXPENSES_KEY = DB_PATHS.TEAM_EXPENSES || "teamExpenses";
 
-const getUserItemPath = (userId, collectionName, itemId) =>
-  `${getUserCollectionPath(userId, collectionName)}/${itemId}`;
+const getTeamsPath = (userId) => `${DB_PATHS.USERS}/${userId}/${TEAMS_KEY}`;
+const getTeamPath = (userId, teamId) => `${getTeamsPath(userId)}/${teamId}`;
+const getTeamExpensesPath = (userId, teamId) =>
+  `${getTeamPath(userId, teamId)}/${TEAM_EXPENSES_KEY}`;
+const getTeamExpensePath = (userId, teamId, expenseId) =>
+  `${getTeamExpensesPath(userId, teamId)}/${expenseId}`;
 
-const createId = (userId, collectionName) =>
-  push(ref(db, getUserCollectionPath(userId, collectionName))).key;
-
-const listenToPath = (path, callback, onError) => {
+const listenToPath = (path, callback, errorMessage) => {
   const pathRef = ref(db, path);
 
   const unsubscribe = onValue(
     pathRef,
-    (snapshot) => callback(snapshot),
-    (error) => {
-      if (onError) {
-        onError(error);
-        return;
-      }
-
-      console.error("Firebase listener error:", error);
-    }
+    callback,
+    (error) => console.error(errorMessage, error)
   );
 
   return () => off(pathRef, "value", unsubscribe);
 };
 
-const listenToQuery = (firebaseQuery, callback, onError) => {
-  const unsubscribe = onValue(
-    firebaseQuery,
-    (snapshot) => callback(snapshot),
-    (error) => {
-      if (onError) {
-        onError(error);
-        return;
-      }
-
-      console.error("Firebase query listener error:", error);
-    }
-  );
-
-  return () => off(firebaseQuery, "value", unsubscribe);
-};
-
-const calculateExpenseTotals = (expenseData) => {
-  const totalFields = getTotalCalculationFields(expenseData.sport);
-
-  const total = totalFields.reduce(
-    (sum, fieldName) => sum + (parseFloat(expenseData[fieldName]) || 0),
-    0
-  );
-
-  const playersCount = expenseData.playersCount || 0;
-  const perPerson = playersCount > 0 ? total / playersCount : 0;
-
-  return {
-    total,
-    playersCount,
-    perPerson: Math.round(perPerson * 100) / 100,
-  };
-};
+const normalizeMembers = (members = []) =>
+  members
+    .filter((member) => member?.personId || member?.id)
+    .map((member, index) => ({
+      personId: member.personId || member.id,
+      role: member.role || (index === 0 ? "Organizer" : "Player"),
+      position: member.position || "",
+      jerseyNumber: member.jerseyNumber || "",
+      shareWeight: Number(member.shareWeight) || 1,
+      paymentStatus: member.paymentStatus || "unpaid",
+      paidAmount: Number(member.paidAmount) || 0,
+      partialPayments: member.partialPayments || [],
+      isActive: member.isActive ?? true,
+      joinedAt: member.joinedAt || now(),
+    }));
 
 export const sportsAPI = {
-  teams: {
-    create: async (userId, teamData) => {
-      const teamId = createId(userId, DB_PATHS.TEAMS);
+  createTeam: async (userId, teamData) => {
+    const teamId = push(ref(db, getTeamsPath(userId))).key;
 
-      const teamWithId = {
-        ...teamData,
-        id: teamId,
-        createdBy: userId,
-        createdAt: now(),
-        updatedAt: now(),
-      };
+    const teamWithId = {
+      ...teamData,
+      id: teamId,
+      name: teamData.name?.trim() || "",
+      location: teamData.location?.trim() || "",
+      season: teamData.season?.trim() || "",
+      currency: teamData.currency || "USD",
+      schedule: teamData.schedule?.trim() || "",
+      paymentMethod: teamData.paymentMethod || "zelle",
+      paymentDetails: teamData.paymentDetails?.trim() || "",
+      description: teamData.description || "",
+      members: normalizeMembers(teamData.members || []),
+      customCategories: teamData.customCategories || [],
+      createdBy: userId,
+      createdAt: now(),
+      updatedAt: now(),
+    };
 
-      await set(
-        ref(db, getUserItemPath(userId, DB_PATHS.TEAMS, teamId)),
-        teamWithId
-      );
+    await set(ref(db, getTeamPath(userId, teamId)), teamWithId);
 
-      return teamWithId;
-    },
-
-    getAll: (userId, callback) =>
-      listenToPath(getUserCollectionPath(userId, DB_PATHS.TEAMS), callback),
-
-    getById: (userId, teamId) =>
-      get(ref(db, getUserItemPath(userId, DB_PATHS.TEAMS, teamId))),
-
-    update: async (userId, teamId, updates) => {
-      await update(ref(db, getUserItemPath(userId, DB_PATHS.TEAMS, teamId)), {
-        ...updates,
-        updatedAt: now(),
-      });
-
-      return teamId;
-    },
-
-    delete: async (userId, teamId) => {
-      await remove(ref(db, getUserItemPath(userId, DB_PATHS.TEAMS, teamId)));
-
-      return teamId;
-    },
-
-    getBySport: (userId, sportType) => {
-      const teamsRef = ref(db, getUserCollectionPath(userId, DB_PATHS.TEAMS));
-
-      const sportQuery = query(
-        teamsRef,
-        orderByChild("sportType"),
-        equalTo(sportType)
-      );
-
-      return get(sportQuery);
-    },
+    return teamWithId;
   },
 
-  players: {
-    create: async (userId, playerData) => {
-      const playerId = createId(userId, DB_PATHS.PLAYERS);
+  getTeams: (userId, callback) =>
+    listenToPath(getTeamsPath(userId), callback, "Teams listener error:"),
 
-      const playerWithId = {
-        ...playerData,
-        id: playerId,
-        isActive:
-          playerData.isActive !== undefined ? playerData.isActive : true,
-        createdAt: now(),
-        updatedAt: now(),
-      };
+  getTeam: (userId, teamId) => get(ref(db, getTeamPath(userId, teamId))),
 
-      await set(
-        ref(db, getUserItemPath(userId, DB_PATHS.PLAYERS, playerId)),
-        playerWithId
-      );
+  updateTeam: async (userId, teamId, updates) => {
+    const finalUpdates = {
+      ...updates,
+      updatedAt: now(),
+    };
 
-      return playerWithId;
-    },
+    if (updates.members) {
+      finalUpdates.members = normalizeMembers(updates.members);
+    }
 
-    getAll: (userId, callback) =>
-      listenToPath(getUserCollectionPath(userId, DB_PATHS.PLAYERS), callback),
+    await update(ref(db, getTeamPath(userId, teamId)), finalUpdates);
 
-    getById: (userId, playerId) =>
-      get(ref(db, getUserItemPath(userId, DB_PATHS.PLAYERS, playerId))),
-
-    update: async (userId, playerId, updates) => {
-      await update(
-        ref(db, getUserItemPath(userId, DB_PATHS.PLAYERS, playerId)),
-        {
-          ...updates,
-          updatedAt: now(),
-        }
-      );
-
-      return playerId;
-    },
-
-    delete: async (userId, playerId) => {
-      await remove(
-        ref(db, getUserItemPath(userId, DB_PATHS.PLAYERS, playerId))
-      );
-
-      return playerId;
-    },
-
-    getByTeam: (userId, teamId, callback) => {
-      const playersRef = ref(
-        db,
-        getUserCollectionPath(userId, DB_PATHS.PLAYERS)
-      );
-
-      const teamQuery = query(
-        playersRef,
-        orderByChild("teamId"),
-        equalTo(teamId)
-      );
-
-      return listenToQuery(teamQuery, callback);
-    },
-
-    getActive: (userId, callback) => {
-      const playersRef = ref(
-        db,
-        getUserCollectionPath(userId, DB_PATHS.PLAYERS)
-      );
-
-      const activeQuery = query(
-        playersRef,
-        orderByChild("isActive"),
-        equalTo(true)
-      );
-
-      return listenToQuery(activeQuery, callback);
-    },
+    return teamId;
   },
 
-  expenses: {
-    create: async (userId, expenseData) => {
-      const expenseId = createId(userId, DB_PATHS.EXPENSES);
-      const totals = calculateExpenseTotals(expenseData);
+  deleteTeam: async (userId, teamId) => {
+    await remove(ref(db, getTeamPath(userId, teamId)));
 
-      const expenseWithId = {
-        ...expenseData,
-        id: expenseId,
-        ...totals,
-        createdAt: now(),
-        updatedAt: now(),
-      };
-
-      await set(
-        ref(db, getUserItemPath(userId, DB_PATHS.EXPENSES, expenseId)),
-        expenseWithId
-      );
-
-      return expenseWithId;
-    },
-
-    getAll: (userId, callback) =>
-      listenToPath(getUserCollectionPath(userId, DB_PATHS.EXPENSES), callback),
-
-    getById: (userId, expenseId) =>
-      get(ref(db, getUserItemPath(userId, DB_PATHS.EXPENSES, expenseId))),
-
-    update: async (userId, expenseId, updates) => {
-      const expenseRef = ref(
-        db,
-        getUserItemPath(userId, DB_PATHS.EXPENSES, expenseId)
-      );
-
-      const snapshot = await get(expenseRef);
-      const existingExpense = snapshot.val() || {};
-      const mergedExpense = { ...existingExpense, ...updates };
-
-      const totalFields = getTotalCalculationFields(
-        mergedExpense.sport || existingExpense.sport
-      );
-
-      const shouldRecalculate =
-        totalFields.some((fieldName) => fieldName in updates) ||
-        "playersCount" in updates ||
-        "sport" in updates;
-
-      const finalUpdates = {
-        ...updates,
-        updatedAt: now(),
-      };
-
-      if (shouldRecalculate) {
-        const totals = calculateExpenseTotals(mergedExpense);
-
-        finalUpdates.total = totals.total;
-        finalUpdates.playersCount = totals.playersCount;
-        finalUpdates.perPerson = totals.perPerson;
-      }
-
-      await update(expenseRef, finalUpdates);
-
-      return expenseId;
-    },
-
-    delete: async (userId, expenseId) => {
-      await remove(
-        ref(db, getUserItemPath(userId, DB_PATHS.EXPENSES, expenseId))
-      );
-
-      return expenseId;
-    },
-
-    getByPeriod: (userId, month, year, callback) => {
-      const expensesRef = ref(
-        db,
-        getUserCollectionPath(userId, DB_PATHS.EXPENSES)
-      );
-
-      const monthQuery = query(
-        expensesRef,
-        orderByChild("monthYear"),
-        equalTo(`${month}_${year}`)
-      );
-
-      return listenToQuery(monthQuery, callback);
-    },
-
-    recalculateAllTotals: async (userId) => {
-      const expensesRef = ref(
-        db,
-        getUserCollectionPath(userId, DB_PATHS.EXPENSES)
-      );
-
-      const snapshot = await get(expensesRef);
-      const expenses = snapshot.val() || {};
-      const updates = {};
-
-      Object.keys(expenses).forEach((expenseId) => {
-        const expense = expenses[expenseId];
-        const totals = calculateExpenseTotals(expense);
-
-        if (
-          (expense.total || 0) !== totals.total ||
-          (expense.perPerson || 0) !== totals.perPerson
-        ) {
-          const expensePath = getUserItemPath(
-            userId,
-            DB_PATHS.EXPENSES,
-            expenseId
-          );
-
-          updates[`${expensePath}/total`] = totals.total;
-          updates[`${expensePath}/playersCount`] = totals.playersCount;
-          updates[`${expensePath}/perPerson`] = totals.perPerson;
-          updates[`${expensePath}/updatedAt`] = now();
-        }
-      });
-
-      if (Object.keys(updates).length === 0) {
-        return null;
-      }
-
-      await update(ref(db), updates);
-
-      return updates;
-    },
+    return teamId;
   },
 
-  payments: {
-    create: async (userId, paymentData) => {
-      const paymentId = createId(userId, DB_PATHS.PAYMENTS);
-      const status = paymentData.status || "pending";
+  updateTeamMembers: async (userId, teamId, members) => {
+    await update(ref(db, getTeamPath(userId, teamId)), {
+      members: normalizeMembers(members),
+      updatedAt: now(),
+    });
 
-      const paymentWithId = {
-        ...paymentData,
-        id: paymentId,
-        amount: paymentData.amount || 0,
-        status,
-        paidAt:
-          paymentData.paidAt ||
-          (status.toLowerCase() === "paid" ? now() : null),
-        createdAt: now(),
-        updatedAt: now(),
-      };
-
-      await set(
-        ref(db, getUserItemPath(userId, DB_PATHS.PAYMENTS, paymentId)),
-        paymentWithId
-      );
-
-      return paymentWithId;
-    },
-
-    getAll: (userId, callback) =>
-      listenToPath(getUserCollectionPath(userId, DB_PATHS.PAYMENTS), callback),
-
-    getById: (userId, paymentId) =>
-      get(ref(db, getUserItemPath(userId, DB_PATHS.PAYMENTS, paymentId))),
-
-    update: async (userId, paymentId, updates) => {
-      const finalUpdates = {
-        ...updates,
-        updatedAt: now(),
-      };
-
-      if (
-        updates.status &&
-        updates.status.toLowerCase() === "paid" &&
-        !updates.paidAt
-      ) {
-        finalUpdates.paidAt = now();
-      }
-
-      await update(
-        ref(db, getUserItemPath(userId, DB_PATHS.PAYMENTS, paymentId)),
-        finalUpdates
-      );
-
-      return paymentId;
-    },
-
-    delete: async (userId, paymentId) => {
-      await remove(
-        ref(db, getUserItemPath(userId, DB_PATHS.PAYMENTS, paymentId))
-      );
-
-      return paymentId;
-    },
-
-    getByPlayer: (userId, playerId, callback) => {
-      const paymentsRef = ref(
-        db,
-        getUserCollectionPath(userId, DB_PATHS.PAYMENTS)
-      );
-
-      const playerQuery = query(
-        paymentsRef,
-        orderByChild("playerId"),
-        equalTo(playerId)
-      );
-
-      return listenToQuery(playerQuery, callback);
-    },
-
-    getByStatus: (userId, status, callback) => {
-      const paymentsRef = ref(
-        db,
-        getUserCollectionPath(userId, DB_PATHS.PAYMENTS)
-      );
-
-      const statusQuery = query(
-        paymentsRef,
-        orderByChild("status"),
-        equalTo(status)
-      );
-
-      return listenToQuery(statusQuery, callback);
-    },
+    return teamId;
   },
 
-  attendance: {
-    record: async (userId, attendanceData) => {
-      const attendanceId = createId(userId, DB_PATHS.ATTENDANCE);
+  createTeamExpense: async (userId, teamId, expenseData) => {
+    const expenseId = push(ref(db, getTeamExpensesPath(userId, teamId))).key;
 
-      const attendanceWithId = {
-        ...attendanceData,
-        id: attendanceId,
-        recordedAt: now(),
-        createdAt: now(),
-      };
+    const expenseWithId = {
+      ...expenseData,
+      id: expenseId,
+      amount: Number(expenseData.amount) || 0,
+      splitBetween: expenseData.splitBetween || [],
+      status: expenseData.status || "unpaid",
+      createdAt: now(),
+      updatedAt: now(),
+    };
 
-      await set(
-        ref(db, getUserItemPath(userId, DB_PATHS.ATTENDANCE, attendanceId)),
-        attendanceWithId
-      );
+    await set(ref(db, getTeamExpensePath(userId, teamId, expenseId)), expenseWithId);
 
-      return attendanceWithId;
-    },
+    return expenseWithId;
+  },
 
-    getAll: (userId, callback) =>
-      listenToPath(
-        getUserCollectionPath(userId, DB_PATHS.ATTENDANCE),
-        callback
-      ),
+  getTeamExpenses: (userId, teamId, callback) =>
+    listenToPath(
+      getTeamExpensesPath(userId, teamId),
+      callback,
+      "Team expenses listener error:"
+    ),
 
-    getByPlayerAndDate: (userId, playerId, date, callback) => {
-      const attendanceRef = ref(
-        db,
-        getUserCollectionPath(userId, DB_PATHS.ATTENDANCE)
-      );
+  updateTeamExpense: async (userId, teamId, expenseId, updates) => {
+    const finalUpdates = {
+      ...updates,
+      updatedAt: now(),
+    };
 
-      const playerDateQuery = query(
-        attendanceRef,
-        orderByChild("playerId_date"),
-        equalTo(`${playerId}_${date}`)
-      );
+    if (updates.amount !== undefined) {
+      finalUpdates.amount = Number(updates.amount) || 0;
+    }
 
-      return listenToQuery(playerDateQuery, callback);
-    },
+    await update(ref(db, getTeamExpensePath(userId, teamId, expenseId)), finalUpdates);
+
+    return expenseId;
+  },
+
+  deleteTeamExpense: async (userId, teamId, expenseId) => {
+    await remove(ref(db, getTeamExpensePath(userId, teamId, expenseId)));
+
+    return expenseId;
   },
 };
-
-/**
- * Backward-compatible exports.
- * This lets your old pages keep working while you slowly update imports.
- */
 
 export const teamsAPI = {
-  createTeam: sportsAPI.teams.create,
-  getTeams: sportsAPI.teams.getAll,
-  getTeam: sportsAPI.teams.getById,
-  updateTeam: sportsAPI.teams.update,
-  deleteTeam: sportsAPI.teams.delete,
-  getTeamsBySport: sportsAPI.teams.getBySport,
+  createTeam: sportsAPI.createTeam,
+  getTeams: sportsAPI.getTeams,
+  getTeam: sportsAPI.getTeam,
+  updateTeam: sportsAPI.updateTeam,
+  updateTeamMembers: sportsAPI.updateTeamMembers,
+  deleteTeam: sportsAPI.deleteTeam,
 };
 
-export const playersAPI = {
-  createPlayer: sportsAPI.players.create,
-  getPlayers: sportsAPI.players.getAll,
-  getPlayer: sportsAPI.players.getById,
-  updatePlayer: sportsAPI.players.update,
-  deletePlayer: sportsAPI.players.delete,
-  getPlayersByTeam: sportsAPI.players.getByTeam,
-  getActivePlayers: sportsAPI.players.getActive,
-};
-
+// Backward-compatible names for old imports while screens are migrated.
 export const expensesAPI = {
-  createExpense: sportsAPI.expenses.create,
-  getExpenses: sportsAPI.expenses.getAll,
-  getExpense: sportsAPI.expenses.getById,
-  updateExpense: sportsAPI.expenses.update,
-  deleteExpense: sportsAPI.expenses.delete,
-  getExpensesByPeriod: sportsAPI.expenses.getByPeriod,
-  recalculateAllTotals: sportsAPI.expenses.recalculateAllTotals,
-};
-
-export const paymentsAPI = {
-  createPayment: sportsAPI.payments.create,
-  getPayments: sportsAPI.payments.getAll,
-  getPayment: sportsAPI.payments.getById,
-  updatePayment: sportsAPI.payments.update,
-  deletePayment: sportsAPI.payments.delete,
-  getPaymentsByPlayer: sportsAPI.payments.getByPlayer,
-  getPaymentsByStatus: sportsAPI.payments.getByStatus,
-};
-
-export const attendanceAPI = {
-  recordAttendance: sportsAPI.attendance.record,
-  getAttendance: sportsAPI.attendance.getAll,
-  getAttendanceByPlayer: sportsAPI.attendance.getByPlayerAndDate,
+  createExpense: (userId, expenseData) =>
+    sportsAPI.createTeamExpense(userId, expenseData.teamId, expenseData),
+  getExpenses: sportsAPI.getTeamExpenses,
+  getExpense: () => Promise.resolve(null),
+  updateExpense: (userId, expenseId, updates) =>
+    sportsAPI.updateTeamExpense(userId, updates.teamId, expenseId, updates),
+  deleteExpense: (userId, expenseId, teamId) =>
+    sportsAPI.deleteTeamExpense(userId, teamId, expenseId),
 };
 
 export default sportsAPI;
