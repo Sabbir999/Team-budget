@@ -9,9 +9,167 @@ import {
   Percent,
 } from "lucide-react";
 
+const getPersonId = (value) => {
+  if (!value) {
+    return "";
+  }
+
+  if (typeof value === "string") {
+    return value;
+  }
+
+  return (
+    value.personId ||
+    value.memberId ||
+    value.playerId ||
+    value.id ||
+    value.uid ||
+    value.name ||
+    ""
+  );
+};
+
+const getExpenseAmount = (expense) => {
+  return Number(expense.total ?? expense.amount ?? expense.cost ?? 0) || 0;
+};
+
+const getExpensePayerId = (expense) => {
+  return (
+    getPersonId(expense.paidBy) ||
+    getPersonId(expense.paidByPersonId) ||
+    getPersonId(expense.paidById) ||
+    getPersonId(expense.payerId)
+  );
+};
+
+const getSplitMemberIds = (expense) => {
+  const splitBetween =
+    expense.splitBetween ||
+    expense.splitMembers ||
+    expense.memberIds ||
+    expense.members ||
+    [];
+
+  if (Array.isArray(splitBetween) && splitBetween.length > 0) {
+    return splitBetween.map(getPersonId).filter(Boolean);
+  }
+
+  return [];
+};
+
+const getPaymentFromId = (payment) => {
+  return (
+    getPersonId(payment.fromPersonId) ||
+    getPersonId(payment.fromMemberId) ||
+    getPersonId(payment.fromId) ||
+    getPersonId(payment.payerId) ||
+    getPersonId(payment.paidBy)
+  );
+};
+
+const getPaymentToId = (payment) => {
+  return (
+    getPersonId(payment.toPersonId) ||
+    getPersonId(payment.toMemberId) ||
+    getPersonId(payment.toId) ||
+    getPersonId(payment.receiverId) ||
+    getPersonId(payment.paidTo)
+  );
+};
+
+const roundMoney = (amount) => Math.round((Number(amount) || 0) * 100) / 100;
+
+const formatMoney = (amount) => {
+  return `$${roundMoney(amount).toFixed(2)}`;
+};
+
+const buildBalances = (expenses = [], payments = []) => {
+  const balances = {};
+
+  expenses.forEach((expense) => {
+    const amount = getExpenseAmount(expense);
+    const payerId = getExpensePayerId(expense);
+    const splitMemberIds = getSplitMemberIds(expense);
+
+    if (!amount || !payerId || splitMemberIds.length === 0) {
+      return;
+    }
+
+    const share = amount / splitMemberIds.length;
+
+    balances[payerId] = (balances[payerId] || 0) + amount;
+
+    splitMemberIds.forEach((memberId) => {
+      balances[memberId] = (balances[memberId] || 0) - share;
+    });
+  });
+
+  payments.forEach((payment) => {
+    const amount = Number(payment.amount) || 0;
+    const fromId = getPaymentFromId(payment);
+    const toId = getPaymentToId(payment);
+
+    if (!amount || !fromId || !toId) {
+      return;
+    }
+
+    balances[fromId] = (balances[fromId] || 0) + amount;
+    balances[toId] = (balances[toId] || 0) - amount;
+  });
+
+  return balances;
+};
+
+const getAmountDueFromBalances = (balances) => {
+  return Object.values(balances).reduce((total, balance) => {
+    if (balance < -0.01) {
+      return total + Math.abs(balance);
+    }
+
+    return total;
+  }, 0);
+};
+
+const getOriginalAmountDue = (expenses = []) => {
+  const balancesBeforePayments = buildBalances(expenses, []);
+  return getAmountDueFromBalances(balancesBeforePayments);
+};
+
+const getProgressText = (collectionRate, amountDue) => {
+  if (amountDue <= 0.01) {
+    return {
+      title: "All payments collected",
+      subtitle: "No remaining balance",
+      className: "text-green-600",
+    };
+  }
+
+  if (collectionRate >= 80) {
+    return {
+      title: "Excellent collection rate",
+      subtitle: `${formatMoney(amountDue)} still to collect`,
+      className: "text-green-600",
+    };
+  }
+
+  if (collectionRate >= 50) {
+    return {
+      title: "Good progress",
+      subtitle: `${formatMoney(amountDue)} still to collect`,
+      className: "text-yellow-600",
+    };
+  }
+
+  return {
+    title: "More payments needed",
+    subtitle: `${formatMoney(amountDue)} still to collect`,
+    className: "text-red-600",
+  };
+};
+
 export default function FinancialOverview({ expenses = [], payments = [] }) {
   const totalExpenses = expenses.reduce(
-    (sum, expense) => sum + (Number(expense.total ?? expense.amount) || 0),
+    (sum, expense) => sum + getExpenseAmount(expense),
     0
   );
 
@@ -20,9 +178,17 @@ export default function FinancialOverview({ expenses = [], payments = [] }) {
     0
   );
 
-  const outstanding = totalExpenses - totalCollected;
+  const balances = buildBalances(expenses, payments);
+  const originalAmountDue = getOriginalAmountDue(expenses);
+  const amountDue = roundMoney(getAmountDueFromBalances(balances));
+  const amountCollected = Math.max(originalAmountDue - amountDue, 0);
+
   const collectionRate =
-    totalExpenses > 0 ? (totalCollected / totalExpenses) * 100 : 0;
+    originalAmountDue > 0
+      ? Math.min((amountCollected / originalAmountDue) * 100, 100)
+      : 100;
+
+  const progressText = getProgressText(collectionRate, amountDue);
 
   const financialData = [
     {
@@ -42,12 +208,12 @@ export default function FinancialOverview({ expenses = [], payments = [] }) {
       color: "green",
     },
     {
-      label: outstanding >= 0 ? "Amount Due" : "Overpaid",
-      value: Math.abs(outstanding),
+      label: "Amount Due",
+      value: amountDue,
       format: "currency",
-      trend: outstanding > 0 ? "down" : outstanding < 0 ? "up" : "neutral",
+      trend: amountDue > 0 ? "down" : "up",
       icon: Users,
-      color: outstanding > 0 ? "red" : outstanding < 0 ? "green" : "gray",
+      color: amountDue > 0 ? "red" : "green",
     },
     {
       label: "Collection Rate",
@@ -89,43 +255,20 @@ export default function FinancialOverview({ expenses = [], payments = [] }) {
   };
 
   const formatValue = (value, format) => {
-    switch (format) {
-      case "currency":
-        return `$${Number(value).toFixed(2)}`;
-      case "percentage":
-        return `${Number(value).toFixed(1)}%`;
-      default:
-        return value;
-    }
-  };
-
-  const getOutstandingText = () => {
-    if (outstanding > 0) {
-      return `${formatValue(outstanding, "currency")} still to collect`;
+    if (format === "currency") {
+      return formatMoney(value);
     }
 
-    if (outstanding < 0) {
-      return `${formatValue(Math.abs(outstanding), "currency")} overpaid`;
+    if (format === "percentage") {
+      return `${Number(value).toFixed(1)}%`;
     }
 
-    return "All payments collected";
-  };
-
-  const getProgressColor = (rate) => {
-    if (rate >= 80) {
-      return "bg-gradient-to-r from-green-500 to-green-600";
-    }
-
-    if (rate >= 50) {
-      return "bg-gradient-to-r from-yellow-500 to-yellow-600";
-    }
-
-    return "bg-gradient-to-r from-red-500 to-red-600";
+    return value;
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-      <div className="flex items-center justify-between mb-6">
+    <div className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition-shadow duration-200 hover:shadow-md">
+      <div className="mb-6 flex items-center justify-between">
         <h3 className="text-xl font-bold text-gray-900">
           Financial Overview
         </h3>
@@ -136,19 +279,19 @@ export default function FinancialOverview({ expenses = [], payments = [] }) {
         </div>
       </div>
 
-      <div className="grid gap-4 mb-6 grid-cols-[repeat(auto-fit,_minmax(220px,_1fr))]">
+      <div className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {financialData.map((item) => {
           const IconComponent = item.icon;
 
           return (
             <div
               key={item.label}
-              className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl p-4 border border-gray-200 hover:border-gray-300 transition-colors min-h-[84px]"
+              className="min-h-[84px] rounded-xl border border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100 p-4 transition-colors hover:border-gray-300"
             >
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
+                <div className="flex min-w-0 items-center gap-3">
                   <div
-                    className={`flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-lg ${getColorClasses(
+                    className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-lg ${getColorClasses(
                       item.color
                     )}`}
                   >
@@ -156,16 +299,16 @@ export default function FinancialOverview({ expenses = [], payments = [] }) {
                   </div>
 
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-600 truncate">
+                    <p className="truncate text-sm font-medium text-gray-600">
                       {item.label}
                     </p>
-                    <p className="text-lg font-bold text-gray-900 truncate">
+                    <p className="truncate text-lg font-bold text-gray-900">
                       {formatValue(item.value, item.format)}
                     </p>
                   </div>
                 </div>
 
-                <div className="flex-shrink-0 ml-2">
+                <div className="ml-2 flex-shrink-0">
                   {getTrendIcon(item.trend)}
                 </div>
               </div>
@@ -174,8 +317,8 @@ export default function FinancialOverview({ expenses = [], payments = [] }) {
         })}
       </div>
 
-      <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-5 border border-blue-100">
-        <div className="flex items-center justify-between mb-3">
+      <div className="rounded-xl border border-blue-100 bg-gradient-to-r from-blue-50 to-purple-50 p-5">
+        <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <Target className="h-5 w-5 text-blue-600" />
             <span className="text-sm font-semibold text-gray-700">
@@ -188,51 +331,37 @@ export default function FinancialOverview({ expenses = [], payments = [] }) {
           </span>
         </div>
 
-        <div className="w-full bg-gray-200 rounded-full h-3 mb-2 overflow-hidden">
+        <div className="mb-2 h-3 w-full overflow-hidden rounded-full bg-gray-200">
           <div
-            className={`h-3 rounded-full transition-all duration-1000 ease-out ${getProgressColor(
-              collectionRate
-            )}`}
+            className="h-3 rounded-full bg-green-500 transition-all duration-1000 ease-out"
             style={{ width: `${Math.min(collectionRate, 100)}%` }}
           />
         </div>
 
-        <div className="flex justify-between text-xs text-gray-600 mb-3">
+        <div className="mb-3 flex justify-between text-xs text-gray-600">
           <span>0%</span>
           <span className="font-medium">Target: 100%</span>
           <span>100%</span>
         </div>
 
         <div className="text-center">
-          <p
-            className={`text-sm font-medium ${
-              collectionRate >= 80
-                ? "text-green-600"
-                : collectionRate >= 50
-                  ? "text-yellow-600"
-                  : "text-red-600"
-            }`}
-          >
-            {collectionRate >= 80
-              ? "🎉 Excellent collection rate!"
-              : collectionRate >= 50
-                ? "📊 Good progress, keep going!"
-                : "📢 More payments needed"}
+          <p className={`text-sm font-medium ${progressText.className}`}>
+            {progressText.title}
           </p>
 
-          <p className="text-xs text-gray-500 mt-1">{getOutstandingText()}</p>
+          <p className="mt-1 text-xs text-gray-500">{progressText.subtitle}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-4 mt-4 text-center">
-        <div className="bg-gray-50 rounded-lg p-3">
+      <div className="mt-4 grid grid-cols-2 gap-4 text-center">
+        <div className="rounded-lg bg-gray-50 p-3">
           <p className="text-xs text-gray-500">Expense Records</p>
           <p className="text-sm font-semibold text-gray-900">
             {expenses.length}
           </p>
         </div>
 
-        <div className="bg-gray-50 rounded-lg p-3">
+        <div className="rounded-lg bg-gray-50 p-3">
           <p className="text-xs text-gray-500">Payment Records</p>
           <p className="text-sm font-semibold text-gray-900">
             {payments.length}
