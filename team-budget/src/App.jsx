@@ -22,6 +22,17 @@ import LoadingSpinner from "./components/common/LoadingSpinner";
 import { sportsRoutes } from "./modules/sports/sportsRoutes";
 import { tripsRoutes } from "./modules/trips/tripsRoutes";
 import { peopleRoutes } from "./modules/people/peopleRoutes";
+import SharedTripPage from "./modules/trips/pages/SharedTripPage";
+
+const publicAuthRoutes = ["/login", "/register", "/forgot-password"];
+
+function isSharedTripRoute(pathname) {
+  return pathname.startsWith("/trips/share/");
+}
+
+function isPublicRoute(pathname) {
+  return publicAuthRoutes.includes(pathname) || isSharedTripRoute(pathname);
+}
 
 function ProtectedRoute({ children }) {
   const { currentUser, loading } = useAuth();
@@ -75,10 +86,8 @@ function RouteHistoryBlocker() {
   const location = useLocation();
 
   useEffect(() => {
-    const publicRoutes = ["/login", "/register", "/forgot-password"];
-
     const handlePopState = () => {
-      if (!currentUser && !publicRoutes.includes(location.pathname)) {
+      if (!currentUser && !isPublicRoute(location.pathname)) {
         navigate("/login", { replace: true });
       }
     };
@@ -99,16 +108,18 @@ function AuthChecker() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const publicRoutes = ["/login", "/register", "/forgot-password"];
-
-    if (!loading && !currentUser && !publicRoutes.includes(location.pathname)) {
+    if (!loading && !currentUser && !isPublicRoute(location.pathname)) {
       navigate("/login", {
         replace: true,
         state: { from: location.pathname },
       });
     }
 
-    if (!loading && currentUser && publicRoutes.includes(location.pathname)) {
+    if (
+      !loading &&
+      currentUser &&
+      publicAuthRoutes.includes(location.pathname)
+    ) {
       navigate("/sports", { replace: true });
     }
   }, [currentUser, loading, location, navigate]);
@@ -133,6 +144,7 @@ function AppContent() {
       <AuthChecker />
 
       <Routes>
+        {/* Public auth routes */}
         <Route
           path="/login"
           element={
@@ -160,6 +172,10 @@ function AppContent() {
           }
         />
 
+        {/* Public shared trip route */}
+        <Route path="/trips/share/:shareId" element={<SharedTripPage />} />
+
+        {/* Protected app routes */}
         <Route
           path="/"
           element={
@@ -178,13 +194,15 @@ function AppContent() {
             />
           ))}
 
-          {tripsRoutes.map((route) => (
-            <Route
-              key={route.path}
-              path={route.path}
-              element={route.element}
-            />
-          ))}
+          {tripsRoutes
+            .filter((route) => route.path !== "trips/share/:shareId")
+            .map((route) => (
+              <Route
+                key={route.path}
+                path={route.path}
+                element={route.element}
+              />
+            ))}
 
           {peopleRoutes.map((route) => (
             <Route

@@ -7,6 +7,7 @@ import { tripsAPI } from "../api/tripsAPI";
 import TripCard from "../components/TripCard";
 import TripForm from "../components/TripForm";
 import TripDetail from "../components/detail/TripDetail";
+import ShareTripModal from "../components/ShareTripModal";
 
 export default function TripsPage() {
   const { currentUser } = useAuth();
@@ -17,6 +18,7 @@ export default function TripsPage() {
   const [editingTrip, setEditingTrip] = useState(null);
   const [openTrip, setOpenTrip] = useState(null);
   const [deletingTrip, setDeletingTrip] = useState(null);
+  const [sharingTrip, setSharingTrip] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -255,6 +257,7 @@ export default function TripsPage() {
               onOpen={setOpenTrip}
               onEdit={handleEdit}
               onDelete={setDeletingTrip}
+              onShare={setSharingTrip}
             />
           ))}
         </div>
@@ -262,6 +265,13 @@ export default function TripsPage() {
 
       {showForm && (
         <TripForm trip={editingTrip} onClose={handleCloseForm} />
+      )}
+
+      {sharingTrip && (
+        <ShareTripModal
+          trip={sharingTrip}
+          onClose={() => setSharingTrip(null)}
+        />
       )}
 
       {deletingTrip && (
