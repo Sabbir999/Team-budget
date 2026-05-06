@@ -20,7 +20,10 @@ import LoadingSpinner from "./components/common/LoadingSpinner";
 import { sportsRoutes } from "./modules/sports/sportsRoutes";
 import { tripsRoutes } from "./modules/trips/tripsRoutes";
 import { peopleRoutes } from "./modules/people/peopleRoutes";
+import { blogRoutes } from "./modules/blog/blogRoutes";
+
 import SharedTripPage from "./modules/trips/pages/SharedTripPage";
+import SharedBlogPostPage from "./modules/blog/pages/SharedBlogPostPage";
 
 const publicAuthRoutes = ["/login", "/register", "/forgot-password"];
 
@@ -28,8 +31,16 @@ function isSharedTripRoute(pathname) {
   return pathname.startsWith("/trips/share/");
 }
 
+function isSharedBlogRoute(pathname) {
+  return pathname.startsWith("/blog/share/");
+}
+
 function isPublicRoute(pathname) {
-  return publicAuthRoutes.includes(pathname) || isSharedTripRoute(pathname);
+  return (
+    publicAuthRoutes.includes(pathname) ||
+    isSharedTripRoute(pathname) ||
+    isSharedBlogRoute(pathname)
+  );
 }
 
 function ProtectedRoute({ children }) {
@@ -148,8 +159,12 @@ function AppContent() {
           }
         />
 
-        {/* Public shared trip route */}
+        {/* Public shared routes */}
         <Route path="/trips/share/:shareId" element={<SharedTripPage />} />
+        <Route
+          path="/blog/share/:userId/:shareId"
+          element={<SharedBlogPostPage />}
+        />
 
         {/* Protected app routes */}
         <Route
@@ -181,6 +196,14 @@ function AppContent() {
             ))}
 
           {peopleRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={route.element}
+            />
+          ))}
+
+          {blogRoutes.map((route) => (
             <Route
               key={route.path}
               path={route.path}

@@ -7,6 +7,7 @@ import {
   Trophy,
   MapPin,
   Users,
+  BookOpen,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -15,6 +16,7 @@ import logo from "../../assets/logo.png";
 import { sportsRoutes } from "../../modules/sports/sportsRoutes";
 import { tripsRoutes } from "../../modules/trips/tripsRoutes";
 import { peopleRoutes } from "../../modules/people/peopleRoutes";
+import { blogRoutes } from "../../modules/blog/blogRoutes";
 
 const visiblePeopleRoutes = peopleRoutes.filter((route) => route.href);
 
@@ -31,6 +33,8 @@ const visibleTripsRoutes = tripsRoutes
     ...route,
     name: "Trips Dashboard",
   }));
+
+const visibleBlogRoutes = blogRoutes.filter((route) => route.href);
 
 const navigation = [
   {
@@ -49,6 +53,11 @@ const navigation = [
     children: visibleTripsRoutes,
   },
   {
+    name: "Blog",
+    icon: BookOpen,
+    children: visibleBlogRoutes,
+  },
+  {
     name: "Settings",
     href: "/settings",
     icon: Settings,
@@ -62,6 +71,7 @@ export default function Sidebar({ isOpen, onToggle }) {
     People: true,
     Sports: true,
     Travel: true,
+    Blog: true,
   });
 
   const isActive = (href) => {

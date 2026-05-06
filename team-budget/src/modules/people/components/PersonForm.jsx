@@ -6,7 +6,7 @@ import { peopleAPI } from "../api/peopleAPI";
 
 const avatarColors = ["blue", "green", "purple", "amber", "pink", "gray"];
 
-export default function PersonForm({ person = null, onClose }) {
+export default function PersonForm({ person = null, onClose, onSaved }) {
   const { currentUser } = useAuth();
   const isEditing = Boolean(person);
 
@@ -23,12 +23,13 @@ export default function PersonForm({ person = null, onClose }) {
   const [error, setError] = useState("");
 
   const updateField = (field, value) => {
-    setForm((previous) => ({ ...previous, [field]: value }));
+    setForm((previous) => ({
+      ...previous,
+      [field]: value,
+    }));
   };
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-
+  const handleSubmit = async () => {
     if (!currentUser?.uid) {
       setError("You must be logged in.");
       return;
@@ -43,10 +44,22 @@ export default function PersonForm({ person = null, onClose }) {
     setError("");
 
     try {
+      let savedPerson;
+
       if (isEditing) {
         await peopleAPI.updatePerson(currentUser.uid, person.id, form);
+
+        savedPerson = {
+          ...person,
+          ...form,
+          updatedAt: Date.now(),
+        };
       } else {
-        await peopleAPI.createPerson(currentUser.uid, form);
+        savedPerson = await peopleAPI.createPerson(currentUser.uid, form);
+      }
+
+      if (onSaved) {
+        onSaved(savedPerson);
       }
 
       onClose();
@@ -59,11 +72,8 @@ export default function PersonForm({ person = null, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <form
-        onSubmit={handleSubmit}
-        className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl"
-      >
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4">
+      <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
         <div className="mb-5 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-bold text-gray-900">
@@ -121,7 +131,9 @@ export default function PersonForm({ person = null, onClose }) {
           </label>
 
           <label>
-            <span className="text-sm font-semibold text-gray-700">Zelle / payment handle</span>
+            <span className="text-sm font-semibold text-gray-700">
+              Zelle / payment handle
+            </span>
             <input
               value={form.zelle}
               onChange={(event) => updateField("zelle", event.target.value)}
@@ -142,7 +154,10 @@ export default function PersonForm({ person = null, onClose }) {
           </label>
 
           <div>
-            <span className="text-sm font-semibold text-gray-700">Avatar color</span>
+            <span className="text-sm font-semibold text-gray-700">
+              Avatar color
+            </span>
+
             <div className="mt-2 flex flex-wrap gap-2">
               {avatarColors.map((color) => (
                 <button
@@ -152,7 +167,7 @@ export default function PersonForm({ person = null, onClose }) {
                   className={`rounded-full border px-3 py-1.5 text-sm font-semibold capitalize ${
                     form.avatarColor === color
                       ? "border-blue-400 bg-blue-50 text-blue-700"
-                      : "border-gray-300 text-gray-600"
+                      : "border-gray-300 text-gray-600 hover:bg-gray-50"
                   }`}
                 >
                   {color}
@@ -172,14 +187,15 @@ export default function PersonForm({ person = null, onClose }) {
           </button>
 
           <button
-            type="submit"
+            type="button"
+            onClick={handleSubmit}
             disabled={saving}
             className="rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
             {saving ? "Saving..." : isEditing ? "Save changes" : "Add person"}
           </button>
         </div>
-      </form>
+      </div>
     </div>
   );
 }

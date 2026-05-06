@@ -18,6 +18,7 @@ export default function PeoplePage() {
   const [editingPerson, setEditingPerson] = useState(null);
   const [openPerson, setOpenPerson] = useState(null);
   const [search, setSearch] = useState("");
+  const [showArchived, setShowArchived] = useState(false);
 
   useEffect(() => {
     if (!currentUser?.uid) {
@@ -43,16 +44,23 @@ export default function PeoplePage() {
   const filteredPeople = useMemo(() => {
     const term = search.trim().toLowerCase();
 
-    if (!term) {
-      return people;
-    }
+    return people.filter((person) => {
+      if (!showArchived && person.archived) {
+        return false;
+      }
 
-    return people.filter((person) =>
-      [person.name, person.email, person.phone, person.zelle]
+      if (!term) {
+        return true;
+      }
+
+      return [person.name, person.email, person.phone, person.zelle]
         .filter(Boolean)
-        .some((value) => value.toLowerCase().includes(term))
-    );
-  }, [people, search]);
+        .some((value) => value.toLowerCase().includes(term));
+    });
+  }, [people, search, showArchived]);
+
+  const activePeopleCount = people.filter((person) => !person.archived).length;
+  const archivedPeopleCount = people.filter((person) => person.archived).length;
 
   const handleEdit = (person) => {
     setEditingPerson(person);
@@ -64,8 +72,37 @@ export default function PeoplePage() {
     setShowForm(false);
   };
 
+  const handleArchive = async (person) => {
+    if (!currentUser?.uid) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Archive ${person.name}? They will stay in old trips and teams, but they will not show in new selections.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    await peopleAPI.archivePerson(currentUser.uid, person.id);
+
+    if (openPerson?.id === person.id) {
+      setOpenPerson(null);
+    }
+  };
+
+  const handleRestore = async (person) => {
+    if (!currentUser?.uid) {
+      return;
+    }
+
+    await peopleAPI.restorePerson(currentUser.uid, person.id);
+  };
+
   if (openPerson) {
-    const latestPerson = people.find((person) => person.id === openPerson.id) || openPerson;
+    const latestPerson =
+      people.find((person) => person.id === openPerson.id) || openPerson;
 
     return (
       <>
@@ -73,6 +110,8 @@ export default function PeoplePage() {
           person={latestPerson}
           onBack={() => setOpenPerson(null)}
           onEdit={handleEdit}
+          onArchive={handleArchive}
+          onRestore={handleRestore}
         />
 
         {showForm && (
@@ -88,8 +127,13 @@ export default function PeoplePage() {
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">People</h1>
+
             <p className="mt-1 text-gray-600">
               Reusable profiles for trips, sports, and future modules.
+            </p>
+
+            <p className="mt-2 text-sm text-gray-500">
+              Active: {activePeopleCount} · Archived: {archivedPeopleCount}
             </p>
           </div>
 
@@ -104,12 +148,26 @@ export default function PeoplePage() {
         </div>
       </div>
 
-      <input
-        value={search}
-        onChange={(event) => setSearch(event.target.value)}
-        className="w-full rounded-2xl border border-gray-300 bg-white px-5 py-3"
-        placeholder="Search people..."
-      />
+      <div className="grid gap-3 md:grid-cols-[1fr_auto]">
+        <input
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          className="w-full rounded-2xl border border-gray-300 bg-white px-5 py-3"
+          placeholder="Search people..."
+        />
+
+        <button
+          type="button"
+          onClick={() => setShowArchived((previous) => !previous)}
+          className={`rounded-2xl border px-5 py-3 font-semibold ${
+            showArchived
+              ? "border-blue-300 bg-blue-50 text-blue-700"
+              : "border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+          }`}
+        >
+          {showArchived ? "Hide archived" : "Show archived"}
+        </button>
+      </div>
 
       {loading ? (
         <div className="rounded-2xl border border-gray-200 bg-white py-16 text-center text-gray-500">
@@ -120,9 +178,14 @@ export default function PeoplePage() {
           <div className="mx-auto mb-5 flex h-20 w-20 items-center justify-center rounded-full bg-blue-50">
             <Users className="h-10 w-10 text-blue-500" />
           </div>
-          <h3 className="text-2xl font-bold text-gray-900">No people yet</h3>
+
+          <h3 className="text-2xl font-bold text-gray-900">
+            {showArchived ? "No archived people found" : "No people yet"}
+          </h3>
+
           <p className="mx-auto mt-2 max-w-md text-gray-600">
-            Add people once and reuse them across trips and future modules.
+            Add people once and reuse them across trips, sports, and future
+            modules.
           </p>
         </div>
       ) : (
@@ -133,6 +196,8 @@ export default function PeoplePage() {
               person={person}
               onOpen={setOpenPerson}
               onEdit={handleEdit}
+              onArchive={handleArchive}
+              onRestore={handleRestore}
             />
           ))}
         </div>

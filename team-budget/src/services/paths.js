@@ -8,4 +8,5 @@ export const DB_PATHS = {
   PEOPLE: "people",
   TRIPS: "trips",
   TRIP_EXPENSES: "tripExpenses",
+  BLOG: "blogPosts",
 };

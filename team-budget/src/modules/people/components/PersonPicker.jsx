@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
+
 import PersonAvatar from "./PersonAvatar";
 import PersonForm from "./PersonForm";
 
@@ -29,11 +30,24 @@ export default function PersonPicker({
   const togglePerson = (personId) => {
     const exists = selectedPersonIds.includes(personId);
 
-    onChange(
-      exists
-        ? selectedPersonIds.filter((id) => id !== personId)
-        : [...selectedPersonIds, personId]
-    );
+    if (exists) {
+      onChange(selectedPersonIds.filter((id) => id !== personId));
+      return;
+    }
+
+    onChange([...selectedPersonIds, personId]);
+  };
+
+  const handlePersonSaved = (savedPerson) => {
+    if (!savedPerson?.id) {
+      return;
+    }
+
+    setSearch("");
+
+    if (!selectedPersonIds.includes(savedPerson.id)) {
+      onChange([...selectedPersonIds, savedPerson.id]);
+    }
   };
 
   return (
@@ -74,10 +88,16 @@ export default function PersonPicker({
               }`}
             >
               <PersonAvatar person={person} />
+
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-gray-900">{person.name}</p>
-                <p className="truncate text-xs text-gray-500">{person.email || person.phone || "No contact info"}</p>
+                <p className="truncate font-semibold text-gray-900">
+                  {person.name}
+                </p>
+                <p className="truncate text-xs text-gray-500">
+                  {person.email || person.phone || "No contact info"}
+                </p>
               </div>
+
               <span
                 className={`h-4 w-4 rounded border ${
                   active ? "border-blue-600 bg-blue-600" : "border-gray-300"
@@ -94,7 +114,12 @@ export default function PersonPicker({
         )}
       </div>
 
-      {showCreate && <PersonForm onClose={() => setShowCreate(false)} />}
+      {showCreate && (
+        <PersonForm
+          onClose={() => setShowCreate(false)}
+          onSaved={handlePersonSaved}
+        />
+      )}
     </div>
   );
 }

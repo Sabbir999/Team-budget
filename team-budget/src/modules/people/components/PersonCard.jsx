@@ -1,16 +1,48 @@
 import React from "react";
-import { Mail, Phone, CircleDollarSign } from "lucide-react";
+import {
+  Mail,
+  Phone,
+  CircleDollarSign,
+  Archive,
+  ArchiveRestore,
+} from "lucide-react";
+
 import PersonAvatar from "./PersonAvatar";
 
-export default function PersonCard({ person, onEdit, onOpen, onDelete }) {
+export default function PersonCard({
+  person,
+  onEdit,
+  onOpen,
+  onArchive,
+  onRestore,
+}) {
+  const archived = Boolean(person.archived);
+
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition hover:shadow-md">
+    <div
+      className={`rounded-2xl border bg-white p-5 shadow-sm transition hover:shadow-md ${
+        archived ? "border-gray-300 opacity-75" : "border-gray-200"
+      }`}
+    >
       <div className="mb-4 flex items-center gap-3">
         <PersonAvatar person={person} size="lg" />
 
-        <div className="min-w-0">
-          <h3 className="truncate text-lg font-bold text-gray-900">{person.name}</h3>
-          <p className="text-sm text-gray-500">Saved person</p>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="truncate text-lg font-bold text-gray-900">
+              {person.name}
+            </h3>
+
+            {archived && (
+              <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-semibold text-gray-600">
+                Archived
+              </span>
+            )}
+          </div>
+
+          <p className="text-sm text-gray-500">
+            {archived ? "Archived person" : "Saved person"}
+          </p>
         </div>
       </div>
 
@@ -19,10 +51,12 @@ export default function PersonCard({ person, onEdit, onOpen, onDelete }) {
           <Mail className="h-4 w-4" />
           <span className="truncate">{person.email || "No email"}</span>
         </p>
+
         <p className="flex items-center gap-2">
           <Phone className="h-4 w-4" />
           <span>{person.phone || "No phone"}</span>
         </p>
+
         <p className="flex items-center gap-2">
           <CircleDollarSign className="h-4 w-4" />
           <span className="truncate">{person.zelle || "No Zelle"}</span>
@@ -37,6 +71,7 @@ export default function PersonCard({ person, onEdit, onOpen, onDelete }) {
         >
           View
         </button>
+
         <button
           type="button"
           onClick={() => onEdit?.(person)}
@@ -46,13 +81,23 @@ export default function PersonCard({ person, onEdit, onOpen, onDelete }) {
         </button>
       </div>
 
-      {onDelete && (
+      {archived ? (
         <button
           type="button"
-          onClick={() => onDelete(person)}
-          className="mt-3 text-xs font-semibold text-red-500 hover:text-red-600"
+          onClick={() => onRestore?.(person)}
+          className="mt-3 inline-flex items-center text-xs font-semibold text-green-600 hover:text-green-700"
         >
-          Delete person
+          <ArchiveRestore className="mr-1 h-4 w-4" />
+          Restore person
+        </button>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onArchive?.(person)}
+          className="mt-3 inline-flex items-center text-xs font-semibold text-gray-500 hover:text-red-600"
+        >
+          <Archive className="mr-1 h-4 w-4" />
+          Archive person
         </button>
       )}
     </div>

@@ -16,7 +16,9 @@ const PEOPLE_KEY = DB_PATHS.PEOPLE || "people";
 const now = () => Date.now();
 
 const getPeoplePath = (userId) => `${DB_PATHS.USERS}/${userId}/${PEOPLE_KEY}`;
-const getPersonPath = (userId, personId) => `${getPeoplePath(userId)}/${personId}`;
+
+const getPersonPath = (userId, personId) =>
+  `${getPeoplePath(userId)}/${personId}`;
 
 const listenToPath = (path, callback, errorMessage) => {
   const pathRef = ref(db, path);
@@ -46,6 +48,7 @@ export const peopleAPI = {
     const personWithId = {
       ...normalizePerson(personData),
       id: personId,
+      archived: false,
       createdAt: now(),
       updatedAt: now(),
     };
@@ -58,11 +61,42 @@ export const peopleAPI = {
   getPeople: (userId, callback) =>
     listenToPath(getPeoplePath(userId), callback, "People listener error:"),
 
-  getPerson: (userId, personId) => get(ref(db, getPersonPath(userId, personId))),
+  getPerson: (userId, personId) =>
+    get(ref(db, getPersonPath(userId, personId))),
 
   updatePerson: async (userId, personId, updates) => {
+    const personRef = ref(db, getPersonPath(userId, personId));
+
+    const existingSnapshot = await get(personRef);
+    const existingPerson = existingSnapshot.val() || {};
+
+    await update(personRef, {
+      ...normalizePerson({
+        ...existingPerson,
+        ...updates,
+      }),
+      archived: updates.archived ?? existingPerson.archived ?? false,
+      archivedAt: updates.archivedAt ?? existingPerson.archivedAt ?? null,
+      updatedAt: now(),
+    });
+
+    return personId;
+  },
+
+  archivePerson: async (userId, personId) => {
     await update(ref(db, getPersonPath(userId, personId)), {
-      ...normalizePerson(updates),
+      archived: true,
+      archivedAt: now(),
+      updatedAt: now(),
+    });
+
+    return personId;
+  },
+
+  restorePerson: async (userId, personId) => {
+    await update(ref(db, getPersonPath(userId, personId)), {
+      archived: false,
+      archivedAt: null,
       updatedAt: now(),
     });
 
