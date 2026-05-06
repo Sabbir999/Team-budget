@@ -37,11 +37,12 @@ const visibleTripsRoutes = tripsRoutes
 const visibleBlogRoutes = blogRoutes.filter((route) => route.href);
 
 const navigation = [
-  {
-    name: "People",
-    icon: Users,
-    children: visiblePeopleRoutes,
-  },
+    {
+    name: "Blog",
+    icon: BookOpen,
+    children: visibleBlogRoutes,
+   },
+
   {
     name: "Sports",
     icon: Trophy,
@@ -53,10 +54,11 @@ const navigation = [
     children: visibleTripsRoutes,
   },
   {
-    name: "Blog",
-    icon: BookOpen,
-    children: visibleBlogRoutes,
+    name: "People",
+    icon: Users,
+    children: visiblePeopleRoutes,
   },
+
   {
     name: "Settings",
     href: "/settings",
