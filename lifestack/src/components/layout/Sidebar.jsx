@@ -18,7 +18,7 @@ import { tripsRoutes } from "../../modules/trips/tripsRoutes";
 import { peopleRoutes } from "../../modules/people/peopleRoutes";
 import { blogRoutes } from "../../modules/blog/blogRoutes";
 
-const visiblePeopleRoutes = peopleRoutes.filter((route) => route.href);
+const visibleBlogRoutes = blogRoutes.filter((route) => route.href);
 
 const visibleSportsRoutes = sportsRoutes
   .filter((route) => route.href === "/sports")
@@ -34,15 +34,14 @@ const visibleTripsRoutes = tripsRoutes
     name: "Trips Dashboard",
   }));
 
-const visibleBlogRoutes = blogRoutes.filter((route) => route.href);
+const visiblePeopleRoutes = peopleRoutes.filter((route) => route.href);
 
 const navigation = [
-    {
+  {
     name: "Blog",
     icon: BookOpen,
     children: visibleBlogRoutes,
-   },
-
+  },
   {
     name: "Sports",
     icon: Trophy,
@@ -58,7 +57,6 @@ const navigation = [
     icon: Users,
     children: visiblePeopleRoutes,
   },
-
   {
     name: "Settings",
     href: "/settings",
@@ -70,10 +68,10 @@ export default function Sidebar({ isOpen, onToggle }) {
   const location = useLocation();
 
   const [openSections, setOpenSections] = useState({
-    People: true,
+    Blog: true,
     Sports: true,
     Travel: true,
-    Blog: true,
+    People: true,
   });
 
   const isActive = (href) => {

@@ -1,25 +1,58 @@
-import React, { useState } from 'react';
-import { Outlet } from 'react-router-dom';
-import Sidebar from './Sidebar.jsx';
-import Header from './Header.jsx';
+import React, { useEffect, useState } from "react";
+import { Outlet, useLocation } from "react-router-dom";
+
+import Header from "./Header";
+import Sidebar from "./Sidebar";
 
 export default function Layout() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const location = useLocation();
+
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") {
+      return true;
+    }
+
+    return window.innerWidth >= 768;
+  });
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 768) {
+        setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
+      }
+    };
+
+    handleResize();
+
+    window.addEventListener("resize", handleResize);
+
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (window.innerWidth < 768) {
+      setSidebarOpen(false);
+    }
+  }, [location.pathname]);
 
   const toggleSidebar = () => {
-    setIsSidebarOpen(!isSidebarOpen);
+    setSidebarOpen((previous) => !previous);
   };
 
   return (
-    <div className="flex h-screen bg-gray-50">
-      <Sidebar isOpen={isSidebarOpen} onToggle={toggleSidebar} />
-      
-      {/* Main content with smooth transition */}
-      <div className={`flex-1 flex flex-col transition-all duration-300 ease-in-out ${
-        isSidebarOpen ? 'md:pl-64' : 'md:pl-0'
-      }`}>
-        <Header isSidebarOpen={isSidebarOpen} />
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-6">
+    <div className="min-h-screen bg-gray-50">
+      <Sidebar isOpen={sidebarOpen} onToggle={toggleSidebar} />
+
+      <div
+        className={`transition-all duration-300 ${
+          sidebarOpen ? "md:ml-64" : "ml-0"
+        }`}
+      >
+        <Header onMenuClick={toggleSidebar} />
+
+        <main className="px-4 py-6 sm:px-6 lg:px-8">
           <Outlet />
         </main>
       </div>
