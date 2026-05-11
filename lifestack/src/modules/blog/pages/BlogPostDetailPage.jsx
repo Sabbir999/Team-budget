@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { Edit, Share2, Trash2 } from "lucide-react";
+import DOMPurify from "dompurify";
 
 import { useAuth } from "../../../contexts/AuthContext";
 import { blogAPI } from "../api/blogAPI";
@@ -178,9 +179,14 @@ export default function BlogPostDetailPage() {
             </div>
           )}
 
-          <div className="prose prose-gray mt-8 max-w-none whitespace-pre-wrap leading-8 text-gray-800">
-            {post.content || "No content yet."}
-          </div>
+          <div
+            className="blog-editor mt-8 max-w-none leading-8 text-gray-800"
+            dangerouslySetInnerHTML={{
+              __html: DOMPurify.sanitize(
+                post.content || "<p>No content yet.</p>"
+              ),
+            }}
+          />
         </div>
       </div>
 

@@ -25,6 +25,8 @@ import { blogRoutes } from "./modules/blog/blogRoutes";
 import SharedTripPage from "./modules/trips/pages/SharedTripPage";
 import SharedBlogPostPage from "./modules/blog/pages/SharedBlogPostPage";
 
+const HOME_ROUTE = "/blog";
+
 const publicAuthRoutes = ["/login", "/register", "/forgot-password"];
 
 function isSharedTripRoute(pathname) {
@@ -74,7 +76,7 @@ function PublicRoute({ children }) {
 
   useEffect(() => {
     if (!loading && currentUser) {
-      navigate("/sports", { replace: true });
+      navigate(HOME_ROUTE, { replace: true });
     }
   }, [currentUser, loading, navigate]);
 
@@ -108,7 +110,7 @@ function AuthRedirectGuard() {
     }
 
     if (currentUser && publicAuthRoutes.includes(location.pathname)) {
-      navigate("/sports", { replace: true });
+      navigate(HOME_ROUTE, { replace: true });
     }
   }, [currentUser, loading, location.pathname, navigate]);
 
@@ -161,6 +163,7 @@ function AppContent() {
 
         {/* Public shared routes */}
         <Route path="/trips/share/:shareId" element={<SharedTripPage />} />
+
         <Route
           path="/blog/share/:userId/:shareId"
           element={<SharedBlogPostPage />}
@@ -175,7 +178,15 @@ function AppContent() {
             </ProtectedRoute>
           }
         >
-          <Route index element={<Navigate to="/sports" replace />} />
+          <Route index element={<Navigate to={HOME_ROUTE} replace />} />
+
+          {blogRoutes.map((route) => (
+            <Route
+              key={route.path}
+              path={route.path}
+              element={route.element}
+            />
+          ))}
 
           {sportsRoutes.map((route) => (
             <Route
@@ -203,25 +214,17 @@ function AppContent() {
             />
           ))}
 
-          {blogRoutes.map((route) => (
-            <Route
-              key={route.path}
-              path={route.path}
-              element={route.element}
-            />
-          ))}
-
           <Route path="settings" element={<Settings />} />
 
           {/* Old route redirects */}
-          <Route path="dashboard" element={<Navigate to="/sports" replace />} />
+          <Route path="dashboard" element={<Navigate to={HOME_ROUTE} replace />} />
           <Route path="teams" element={<Navigate to="/sports" replace />} />
           <Route path="players" element={<Navigate to="/sports" replace />} />
           <Route path="expenses" element={<Navigate to="/sports" replace />} />
           <Route path="payments" element={<Navigate to="/sports" replace />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/sports" replace />} />
+        <Route path="*" element={<Navigate to={HOME_ROUTE} replace />} />
       </Routes>
     </>
   );

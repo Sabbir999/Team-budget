@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import DOMPurify from "dompurify";
 
 import { blogAPI } from "../api/blogAPI";
 
@@ -128,7 +129,9 @@ export default function SharedBlogPostPage() {
             <h1 className="text-4xl font-bold text-gray-900">{post.title}</h1>
 
             <div className="mt-3 space-y-1 text-gray-500">
-              {post.publishedAt && <p>Published {formatDate(post.publishedAt)}</p>}
+              {post.publishedAt && (
+                <p>Published {formatDate(post.publishedAt)}</p>
+              )}
 
               {post.authorName && (
                 <p>
@@ -160,9 +163,14 @@ export default function SharedBlogPostPage() {
               </div>
             )}
 
-            <div className="prose prose-gray mt-8 max-w-none whitespace-pre-wrap leading-8 text-gray-800">
-              {post.content || "No content yet."}
-            </div>
+            <div
+              className="blog-editor mt-8 max-w-none leading-8 text-gray-800"
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(
+                  post.content || "<p>No content yet.</p>"
+                ),
+              }}
+            />
           </div>
         </div>
       </article>

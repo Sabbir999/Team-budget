@@ -1,6 +1,8 @@
 import React, { useMemo, useState } from "react";
 import { Save, Send } from "lucide-react";
 
+import RichTextEditor from "./RichTextEditor";
+
 const categories = [
   "Update",
   "Announcement",
@@ -109,15 +111,19 @@ export default function BlogPostForm({
           />
         </label>
 
-        <label className="block">
+        <div>
           <span className="text-sm font-semibold text-gray-700">Content</span>
-          <textarea
+
+          <RichTextEditor
             value={form.content}
-            onChange={(event) => updateField("content", event.target.value)}
-            className="mt-1 min-h-[360px] w-full rounded-xl border border-gray-300 px-4 py-3 leading-7"
-            placeholder="Write your post here..."
+            onChange={(content) => updateField("content", content)}
           />
-        </label>
+
+          <p className="mt-2 text-xs text-gray-500">
+            Select text and use the toolbar to change font size, headings,
+            bold, italic, lists, quotes, links, undo, and redo.
+          </p>
+        </div>
       </div>
 
       <aside className="space-y-4 rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
